@@ -1,0 +1,29 @@
+{
+  "name": "netresearch/agent-concourse-ci-skill",
+  "description": "Agent Skill for Concourse CI pipeline development - writing, optimization, debugging | Claude Code compatible",
+  "type": "ai-agent-skill",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Netresearch DTT GmbH",
+      "email": "info@netresearch.de",
+      "homepage": "https://www.netresearch.de/",
+      "role": "Manufacturer"
+    }
+  ],
+  "require": {
+    "netresearch/composer-agent-skill-plugin": "*"
+  },
+  "extra": {
+    "ai-agent-skill": "skills/concourse-ci/SKILL.md"
+  },
+  "keywords": [
+    "concourse",
+    "ci",
+    "cd",
+    "pipeline",
+    "devops",
+    "ai-agent-skill",
+    "claude-code"
+  ]
+}
