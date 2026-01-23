@@ -1,7 +1,7 @@
 ---
 name: concourse-ci
 description: "Agent Skill: Expert guidance for Concourse CI pipeline development, optimization, and troubleshooting. Covers pipeline creation, resource configuration (git, registry-image, 50+ types), oci-build-task for container builds, across step for multi-env deploys, build_log_retention, YAML anchors, webhook triggers, set_pipeline for dynamic pipelines, and critical gotchas like tag detection after force-push. Targets Concourse v8.0+. By Netresearch."
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Concourse CI Pipeline Development
@@ -18,6 +18,8 @@ This skill provides expert guidance for writing, refactoring, upgrading, and opt
 | Multi-env deploys | `across` step modifier | Duplicate jobs per env |
 | Notifications | Dedicated resources (slack-alert, teams) | Generic HTTP resource |
 | Dynamic pipelines | `set_pipeline` + instanced pipelines | Manual pipeline duplication |
+| Notification symbols | UTF-8 characters (`✅`, `❌`) | HTML entities (`&#9989;`) |
+| Resource styling | Always use `icon:` property | No icon (poor UI/UX) |
 
 ## Core Concepts
 
@@ -492,3 +494,66 @@ groups:
 - name: infrastructure
   jobs: [terraform-*]  # Glob patterns supported
 ```
+
+## Pipeline Styling Requirements
+
+### Resource Icons (Required)
+
+**Every resource MUST have an `icon:` property** for better UI/UX in the Concourse dashboard. Use [Material Design icon names](https://pictogrammers.com/library/mdi/).
+
+```yaml
+resources:
+- name: source
+  type: git
+  icon: gitlab          # Required - improves dashboard readability
+
+- name: app-image
+  type: registry-image
+  icon: docker          # Required
+
+- name: notify
+  type: http-resource
+  icon: message-text    # Required
+
+- name: timer
+  type: time
+  icon: clock-outline   # Required
+```
+
+**Common icon mappings:**
+
+| Resource Type | Recommended Icon |
+|---------------|------------------|
+| `git` | `gitlab`, `github`, `git` |
+| `registry-image` | `docker` |
+| `time` | `clock-outline` |
+| `http-resource` | `message-text`, `webhook` |
+| `slack-alert` | `slack`, `bell` |
+| `semver` | `tag` |
+| `s3` | `aws`, `bucket` |
+| `terraform` | `terraform` |
+
+### Notification Symbols (UTF-8 Preferred)
+
+**Always use UTF-8 characters instead of HTML entities** for notification messages. UTF-8 is more readable in YAML and works across all modern systems.
+
+```yaml
+# Modern (Preferred) - UTF-8 characters
+notification:
+  icon_success: "✅"
+  icon_failure: "❌"
+  icon_warning: "⚠️"
+  icon_info: "ℹ️"
+  icon_rocket: "🚀"
+
+# Legacy (Avoid) - HTML entities
+notification:
+  icon_success: "&#9989;"    # Avoid - hard to read
+  icon_failure: "&#128308;"  # Avoid - requires lookup
+```
+
+**Rationale:**
+- UTF-8 is human-readable in YAML files
+- No encoding/decoding issues
+- Works in all modern terminals, chat clients, and browsers
+- Easier to maintain and review in diffs
