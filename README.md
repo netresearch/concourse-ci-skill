@@ -2,7 +2,7 @@
 
 [![Claude Code Compatible](https://img.shields.io/badge/Claude%20Code-Compatible-blue?logo=anthropic)](https://claude.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/netresearch/concourse-ci-skill/releases)
+[![Version](https://img.shields.io/badge/version-1.1.0-green.svg)](https://github.com/netresearch/concourse-ci-skill/releases)
 
 **Agent Skill** for expert Concourse CI pipeline development, optimization, and troubleshooting.
 
@@ -63,16 +63,18 @@ The skill activates automatically when you work with Concourse CI topics:
 
 ```
 skills/concourse-ci/
-├── SKILL.md                          # Core guidance (~1.2k words)
+├── SKILL.md                          # Core guidance
 ├── references/
 │   ├── pipeline-syntax.md            # Complete YAML schema
-│   ├── resources-guide.md            # Git, registry-image, time, s3, semver
-│   ├── best-practices.md             # Optimization & troubleshooting
-│   └── resource-types-catalog.md     # 50+ resource types
+│   ├── resources-guide.md            # Git, registry-image, docker-image migration
+│   ├── best-practices.md             # Optimization, notifications, deployment
+│   └── resource-types-catalog.md     # 50+ resource types incl. Ansible, Terraform
 ├── examples/
-│   ├── basic-pipeline.yml            # Build-test-deploy pattern
+│   ├── basic-pipeline.yml            # Build-test-deploy with oci-build-task
+│   ├── modern-ci-cd.yml              # Modern patterns: across, build_log_retention
 │   ├── multi-branch.yml              # Dynamic branch pipelines
-│   └── docker-build.yml              # OCI image building
+│   ├── docker-build.yml              # OCI image building with versioning
+│   └── vars-template.yml             # Variable file organization
 └── scripts/
     └── validate-pipeline.sh          # Pipeline validation script
 ```

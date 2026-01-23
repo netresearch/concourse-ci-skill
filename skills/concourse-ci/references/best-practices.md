@@ -528,6 +528,14 @@ resources:
     stop: 3:00 AM
     location: America/New_York
 
+- name: weekday-morning
+  type: time
+  source:
+    start: 9:00 AM
+    stop: 9:30 AM
+    location: Europe/Berlin
+    days: [Monday, Tuesday, Wednesday, Thursday, Friday]
+
 jobs:
 - name: nightly-cleanup
   plan:
@@ -535,23 +543,321 @@ jobs:
     trigger: true
   - task: cleanup
     file: ci/tasks/cleanup.yml
+
+- name: weekday-update
+  plan:
+  - get: weekday-morning
+    trigger: true
+  - get: source
+  - task: update-dependencies
+    file: source/ci/tasks/update.yml
 ```
 
-### Multi-Environment Deploy
+### Multi-Environment Deploy with `across`
+
+Modern approach using the `across` step modifier:
 
 ```yaml
+jobs:
 - name: deploy
   plan:
   - get: app-image
     trigger: true
+  - get: source
   - task: deploy
     across:
     - var: env
-      values: [dev, staging]
-      max_in_flight: 1
-    file: ci/tasks/deploy.yml
+      values: [dev, staging, prod]
+      max_in_flight: 1  # Sequential deployment
+    file: source/ci/tasks/deploy.yml
     params:
       ENVIRONMENT: ((.:env))
+      CONFIG: source/config/((.:env)).yml
+```
+
+### Environment-Specific Resources (Traditional Pattern)
+
+When `across` isn't suitable, use separate resources per environment:
+
+```yaml
+# Define anchor for common settings
+git-source: &git-source
+  uri: https://github.com/org/repo
+  username: ((git.username))
+  password: ((git.password))
+
+resources:
+- name: repo-staging
+  type: git
+  source:
+    <<: *git-source
+    branch: staging
+
+- name: repo-prod
+  type: git
+  source:
+    <<: *git-source
+    branch: prod
+
+- name: image-staging
+  type: registry-image
+  source:
+    repository: registry.example.com/org/app
+    tag: staging
+    username: ((registry.user))
+    password: ((registry.pass))
+
+- name: image-prod
+  type: registry-image
+  source:
+    repository: registry.example.com/org/app
+    tag: prod
+    username: ((registry.user))
+    password: ((registry.pass))
+```
+
+---
+
+## Notification Patterns
+
+### Modern: Dedicated Notification Resources
+
+Use specialized resources for better formatting and features:
+
+**Slack (Recommended: arbourd/concourse-slack-alert-resource)**
+
+```yaml
+resource_types:
+- name: slack-alert
+  type: registry-image
+  source:
+    repository: arbourd/concourse-slack-alert-resource
+
+resources:
+- name: notify
+  type: slack-alert
+  source:
+    url: ((slack.webhook_url))
+    channel: "#builds"
+
+jobs:
+- name: build
+  plan:
+  - get: source
+    trigger: true
+  - task: build
+    file: source/ci/tasks/build.yml
+  on_success:
+    put: notify
+    params:
+      alert_type: success
+  on_failure:
+    put: notify
+    params:
+      alert_type: failed
+```
+
+**Microsoft Teams**
+
+```yaml
+resource_types:
+- name: teams-notification
+  type: registry-image
+  source:
+    repository: navicore/teams-notification-resource
+
+resources:
+- name: teams
+  type: teams-notification
+  source:
+    url: ((teams.webhook_url))
+
+jobs:
+- name: deploy
+  on_failure:
+    put: teams
+    params:
+      text: "Deploy failed: $BUILD_PIPELINE_NAME/$BUILD_JOB_NAME"
+      color: "FF0000"
+```
+
+### Generic: HTTP Resource for Custom Webhooks
+
+For Matrix, Element, Discord, or custom endpoints:
+
+```yaml
+resource_types:
+- name: http-resource
+  type: registry-image
+  source:
+    repository: jgriff/http-resource
+
+resources:
+- name: webhook
+  type: http-resource
+  source:
+    url: https://hooks.example.com/notify
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer ((webhook.token))
+    out_only: true          # No check/get operations
+    sensitive: true         # Hide response in logs
+    build_metadata: [headers, body]  # Enable CI variable resolution
+
+# Usage with CI metadata variables
+- put: webhook
+  params:
+    body: |
+      {
+        "pipeline": "$BUILD_PIPELINE_NAME",
+        "job": "$BUILD_JOB_NAME",
+        "build": "$BUILD_NAME",
+        "url": "$ATC_EXTERNAL_URL/builds/$BUILD_ID",
+        "status": "failed"
+      }
+```
+
+### Notification Anchor Pattern
+
+DRY notification configuration:
+
+```yaml
+# Top of pipeline
+notify-success: &notify-success
+  put: notify
+  params:
+    alert_type: success
+
+notify-failure: &notify-failure
+  put: notify
+  params:
+    alert_type: failed
+
+jobs:
+- name: build
+  plan:
+  - get: source
+  - task: build
+    file: source/ci/tasks/build.yml
+  on_success:
+    <<: *notify-success
+  on_failure:
+    <<: *notify-failure
+
+- name: deploy
+  plan:
+  - get: source
+    passed: [build]
+  - task: deploy
+    file: source/ci/tasks/deploy.yml
+  on_success:
+    <<: *notify-success
+  on_failure:
+    <<: *notify-failure
+```
+
+---
+
+## Deployment Patterns
+
+### Ansible Playbook Execution
+
+For infrastructure provisioning with Ansible:
+
+```yaml
+resource_types:
+- name: ansible-playbook
+  type: registry-image
+  source:
+    repository: troykinsella/concourse-ansible-playbook-resource
+    tag: latest
+
+resources:
+- name: ansible-deploy
+  type: ansible-playbook
+  source:
+    ssh_private_key: ((ssh.private_key))
+    env:
+      ANSIBLE_HOST_KEY_CHECKING: "false"
+      SSH_USER: ((ssh.user))
+
+jobs:
+- name: provision
+  plan:
+  - get: infrastructure-repo
+    trigger: true
+  - put: ansible-deploy
+    params:
+      path: infrastructure-repo/ansible
+      playbook: playbooks/provision.yml
+      inventory: inventory/hosts
+      limit: production  # Target host group
+      extra_vars:
+        app_version: "1.2.3"
+```
+
+### Task-Based Ansible (Alternative)
+
+For simpler setups without the resource type:
+
+```yaml
+- task: ansible-deploy
+  config:
+    platform: linux
+    image_resource:
+      type: registry-image
+      source:
+        repository: cytopia/ansible
+        tag: latest
+    inputs:
+    - name: source
+    params:
+      ANSIBLE_HOST_KEY_CHECKING: "false"
+      SSH_PRIVATE_KEY: ((ssh.private_key))
+    run:
+      path: /bin/sh
+      args:
+      - -c
+      - |
+        mkdir -p ~/.ssh
+        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        cd source/ansible
+        ansible-playbook -i inventory/hosts playbook.yml
+```
+
+### Cross-Repository Pipeline Triggers
+
+Trigger downstream pipelines by pushing to other repositories:
+
+```yaml
+- task: trigger-downstream
+  config:
+    platform: linux
+    image_resource:
+      type: registry-image
+      source:
+        repository: alpine/git
+    inputs:
+    - name: source
+    params:
+      GIT_USER: ((git.username))
+      GIT_TOKEN: ((git.token))
+      DOWNSTREAM_REPO: https://github.com/org/downstream.git
+    run:
+      path: /bin/sh
+      args:
+      - -c
+      - |
+        VERSION=$(cat source/version)
+        git clone https://${GIT_USER}:${GIT_TOKEN}@${DOWNSTREAM_REPO#https://} downstream
+        cd downstream
+        echo "$VERSION" > app-version
+        git config user.email "ci@example.com"
+        git config user.name "CI Bot"
+        git add app-version
+        git commit -m "Update app version to $VERSION"
+        git push origin main
 ```
 
 ---

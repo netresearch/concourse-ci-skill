@@ -1,7 +1,7 @@
 ---
 name: concourse-ci
-description: This skill provides expert guidance for Concourse CI pipeline development and should be used when creating pipelines, writing CI/CD YAML for Concourse, optimizing pipeline performance, debugging build failures, upgrading Concourse configurations, refactoring pipeline YAML, configuring git-resource or registry-image-resource, troubleshooting tag detection issues, working with fly CLI commands, implementing YAML anchors for DRY configuration, setting up webhook triggers, using set_pipeline for dynamic pipelines, or any task involving Concourse CI jobs, tasks, resources, or resource types.
-version: 1.0.0
+description: "Agent Skill: Expert guidance for Concourse CI pipeline development, optimization, and troubleshooting. Covers pipeline creation, resource configuration (git, registry-image, 50+ types), oci-build-task for container builds, across step for multi-env deploys, build_log_retention, YAML anchors, webhook triggers, set_pipeline for dynamic pipelines, and critical gotchas like tag detection after force-push. Targets Concourse v8.0+. By Netresearch."
+version: 1.1.0
 ---
 
 # Concourse CI Pipeline Development
@@ -9,6 +9,15 @@ version: 1.0.0
 This skill provides expert guidance for writing, refactoring, upgrading, and optimizing Concourse CI pipelines. Concourse is a pipeline-based continuous thing-doer that implements CI/CD workflows as dependency flows.
 
 > **Compatibility**: Concourse v8.0+ (current). Legacy support for v6.5+ where noted.
+
+## Modern vs Legacy Approaches
+
+| Task | Modern (Recommended) | Legacy (Avoid) |
+|------|---------------------|----------------|
+| Building images | `oci-build-task` + `registry-image` | `docker-image` resource |
+| Multi-env deploys | `across` step modifier | Duplicate jobs per env |
+| Notifications | Dedicated resources (slack-alert, teams) | Generic HTTP resource |
+| Dynamic pipelines | `set_pipeline` + instanced pipelines | Manual pipeline duplication |
 
 ## Core Concepts
 
@@ -232,6 +241,28 @@ jobs:
     - task: security-scan
 ```
 
+### Multi-Environment with `across` Step
+
+Modern alternative to duplicate resources/jobs per environment:
+
+```yaml
+jobs:
+- name: deploy
+  plan:
+  - get: app-image
+    trigger: true
+  - get: source
+  - task: deploy
+    across:
+    - var: env
+      values: [dev, staging, prod]
+      max_in_flight: 1  # Sequential deployment
+    file: source/ci/tasks/deploy.yml
+    params:
+      ENVIRONMENT: ((.:env))
+      CONFIG_FILE: source/config/((.:env)).yml
+```
+
 ## Optimization Techniques
 
 1. **Parallel Steps**: Use `in_parallel` for independent operations
@@ -239,6 +270,65 @@ jobs:
 3. **Resource Filtering**: Use `paths`/`ignore_paths` to limit triggers
 4. **Shallow Clones**: Set `depth: 1` for git resources when history not needed
 5. **Serial Groups**: Prevent resource contention with `serial_groups`
+6. **Build Log Retention**: Configure `build_log_retention` to manage storage
+7. **Skip Download**: Use `skip_download: true` for version checks without pulling
+
+## Build Log Retention
+
+Control log storage per job:
+
+```yaml
+jobs:
+- name: frequent-job
+  build_log_retention:
+    days: 7                        # Keep logs for 7 days
+    builds: 100                    # Keep last 100 builds
+    minimum_succeeded_builds: 1    # Always keep at least 1 success
+  plan:
+  - get: source
+    trigger: true
+  - task: build
+    file: source/ci/tasks/build.yml
+```
+
+## Task Reusability with Input/Output Mapping
+
+Map generic task inputs/outputs to specific resources:
+
+```yaml
+# Generic task file: ci/tasks/deploy.yml
+platform: linux
+image_resource:
+  type: registry-image
+  source: { repository: alpine }
+inputs:
+- name: app-source    # Generic name
+- name: app-image     # Generic name
+outputs:
+- name: deploy-result
+params:
+  TARGET_ENV:
+run:
+  path: /bin/sh
+  args: ["-c", "echo Deploying to $TARGET_ENV"]
+
+# Pipeline usage with mapping
+jobs:
+- name: deploy-staging
+  plan:
+  - in_parallel:
+    - get: my-repo
+    - get: staging-image
+  - task: deploy
+    file: my-repo/ci/tasks/deploy.yml
+    input_mapping:
+      app-source: my-repo        # Map generic → specific
+      app-image: staging-image
+    output_mapping:
+      deploy-result: staging-result
+    params:
+      TARGET_ENV: staging
+```
 
 ## Critical Gotchas
 
@@ -292,16 +382,18 @@ resources:
 
 For detailed configuration options, consult:
 - **`references/pipeline-syntax.md`** - Complete YAML schema for pipelines, jobs, resources
-- **`references/resources-guide.md`** - Git-resource, registry-image-resource configuration
-- **`references/best-practices.md`** - Optimization, troubleshooting, security patterns
-- **`references/resource-types-catalog.md`** - Available resource types and usage
+- **`references/resources-guide.md`** - Git-resource, registry-image-resource, docker-image migration
+- **`references/best-practices.md`** - Optimization, troubleshooting, notifications, deployment patterns
+- **`references/resource-types-catalog.md`** - Available resource types including Ansible, Terraform
 
 ### Example Files
 
 Working examples in `examples/`:
-- **`basic-pipeline.yml`** - Minimal build-test-deploy pattern
+- **`basic-pipeline.yml`** - Build-test-deploy pattern with versioning
+- **`modern-ci-cd.yml`** - Modern patterns: oci-build-task, across, build_log_retention
 - **`multi-branch.yml`** - Dynamic branch pipelines with set_pipeline
 - **`docker-build.yml`** - Container image build and push
+- **`vars-template.yml`** - Variable file organization pattern
 
 ### Validation Script
 
@@ -328,6 +420,31 @@ fly -t target watch -j pipeline/job-name
 # Validate pipeline syntax
 fly -t target validate-pipeline -c pipeline.yml
 ```
+
+## Modern Container Image Building
+
+Use `oci-build-task` + `registry-image` (not legacy `docker-image`):
+
+```yaml
+- task: build-image
+  privileged: true
+  config:
+    platform: linux
+    image_resource:
+      type: registry-image
+      source: { repository: concourse/oci-build-task }
+    inputs: [{ name: source }]
+    outputs: [{ name: image }]
+    params:
+      CONTEXT: source
+      DOCKERFILE: source/Dockerfile
+    caches: [{ path: cache }]
+    run: { path: build }
+- put: app-image
+  params: { image: image/image.tar }
+```
+
+Key parameters: `CONTEXT`, `DOCKERFILE`, `BUILD_ARG_*`, `TARGET`, `IMAGE_PLATFORM`, `OUTPUT_OCI`. See `references/resources-guide.md` for full migration guide from `docker-image`.
 
 ## Task Configuration Pattern
 

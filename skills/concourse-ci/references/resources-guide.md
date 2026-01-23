@@ -242,10 +242,27 @@ resources:
 - get: app-image
   params:
     format: rootfs                        # rootfs, oci, oci-layout
-    skip_download: false                  # Skip image download
+    skip_download: false                  # Skip image download (optimization)
     platform:                             # Override source platform
       architecture: arm64
       os: linux
+```
+
+### Optimization: skip_download
+
+Use `skip_download: true` when you only need version metadata without the image:
+
+```yaml
+# Check if new version exists without downloading
+- get: base-image
+  params:
+    skip_download: true
+  trigger: true
+
+# Later, download only when needed
+- get: base-image
+  passed: [check-job]
+  # No skip_download = full download
 ```
 
 ### Put Parameters
@@ -392,7 +409,83 @@ resources:
 
 ## Docker Image Resource (concourse/docker-image-resource)
 
-**Note**: Prefer `registry-image` for new pipelines. `docker-image` is legacy but still widely used.
+> ⚠️ **LEGACY**: The `docker-image` resource is deprecated. Use `oci-build-task` + `registry-image` for new pipelines.
+
+### Migration Guide: docker-image → oci-build-task
+
+**Before (Legacy docker-image):**
+```yaml
+resources:
+- name: app-image
+  type: docker-image
+  source:
+    repository: registry.example.com/org/app
+    username: ((registry.user))
+    password: ((registry.pass))
+
+jobs:
+- name: build
+  plan:
+  - get: source
+  - put: app-image
+    params:
+      build: source
+      build_args:
+        NODE_VERSION: "20"
+      docker_buildkit: 1
+```
+
+**After (Modern oci-build-task + registry-image):**
+```yaml
+resources:
+- name: app-image
+  type: registry-image
+  source:
+    repository: registry.example.com/org/app
+    username: ((registry.user))
+    password: ((registry.pass))
+
+jobs:
+- name: build
+  plan:
+  - get: source
+  - task: build
+    privileged: true
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source:
+          repository: concourse/oci-build-task
+      inputs:
+      - name: source
+      outputs:
+      - name: image
+      params:
+        CONTEXT: source
+        BUILD_ARG_NODE_VERSION: "20"
+      caches:
+      - path: cache
+      run:
+        path: build
+  - put: app-image
+    params:
+      image: image/image.tar
+```
+
+### Why Migrate?
+
+| Aspect | docker-image | oci-build-task |
+|--------|--------------|----------------|
+| Maintenance | Deprecated, minimal updates | Actively maintained |
+| Security | Requires Docker daemon | Uses BuildKit directly |
+| Caching | Basic layer caching | Efficient BuildKit cache |
+| Multi-arch | Limited support | Full `IMAGE_PLATFORM` support |
+| Complexity | All-in-one (opaque) | Explicit build + push steps |
+
+### Legacy docker-image Reference
+
+If migrating existing pipelines, here's the legacy syntax:
 
 ```yaml
 resources:
@@ -418,6 +511,29 @@ resources:
     load_base: base-image                 # Pre-loaded base
     docker_buildkit: 1                    # Enable BuildKit
 ```
+
+### Passing Images Between Jobs (Legacy Pattern)
+
+When using docker-image, pass images between jobs with `save`/`load`:
+
+```yaml
+# Job 1: Build and save
+- get: app-image
+  params:
+    save: true  # Save image layers for downstream jobs
+
+# Job 2: Load and use
+- get: app-image
+  passed: [build]
+  params:
+    save: true
+- put: app-image
+  params:
+    load: app-image  # Load from previous get
+    tag_file: version/tag
+```
+
+**Modern alternative**: Use task outputs with `image.tar` artifact.
 
 ---
 

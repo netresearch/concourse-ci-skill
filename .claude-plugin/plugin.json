@@ -1,6 +1,6 @@
 {
   "name": "concourse-ci",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Expert guidance for Concourse CI pipeline development, optimization, and troubleshooting",
   "repository": "https://github.com/netresearch/concourse-ci-skill",
   "license": "MIT",

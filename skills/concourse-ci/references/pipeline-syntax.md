@@ -181,6 +181,23 @@ image_resource:
   params: {}
   version: {}
 
+# Private registry example
+image_resource:
+  type: registry-image
+  source:
+    repository: registry.example.com/org/build-tools
+    username: ((registry.user))
+    password: ((registry.pass))
+    tag: "1.2.3"
+
+# OR use docker-image type (legacy)
+image_resource:
+  type: docker-image
+  source:
+    repository: registry.example.com/org/build-tools
+    username: ((registry.user))
+    password: ((registry.pass))
+
 # OR use rootfs_uri for pre-uploaded images
 rootfs_uri: /path/to/rootfs
 

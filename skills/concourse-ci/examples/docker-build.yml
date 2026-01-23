@@ -27,6 +27,13 @@ registry-source: &registry-source
   username: ((registry.username))
   password: ((registry.password))
 
+# Build log retention
+log-retention: &log-retention
+  build_log_retention:
+    days: 14
+    builds: 50
+    minimum_succeeded_builds: 1
+
 ################################################
 # Resources
 ################################################

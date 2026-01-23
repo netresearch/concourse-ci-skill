@@ -118,6 +118,48 @@ resources:
 | `pulumi` | ringods/pulumi-resource | Pulumi deployments |
 | `cf` | concourse/cf-resource | Cloud Foundry apps |
 | `bosh-deployment` | cloudfoundry/bosh-deployment-resource | BOSH deployments |
+| `ansible-playbook` | troykinsella/concourse-ansible-playbook-resource | Ansible deployments |
+
+### Example: Ansible Playbook Resource
+
+```yaml
+resource_types:
+- name: ansible-playbook
+  type: registry-image
+  source:
+    repository: troykinsella/concourse-ansible-playbook-resource
+    tag: latest
+
+resources:
+- name: deploy-playbook
+  type: ansible-playbook
+  source:
+    ssh_private_key: ((ssh.private_key))
+    env:
+      ANSIBLE_HOST_KEY_CHECKING: "false"
+      APP_USER: ((app.user))
+      APP_PASSWORD: ((app.password))
+
+jobs:
+- name: deploy
+  plan:
+  - get: source
+    trigger: true
+    passed: [build]
+  - put: deploy-playbook
+    params:
+      path: source/ansible
+      playbook: playbooks/deploy.yml
+      inventory: inventory/hosts
+      limit: production        # Target specific host group
+      tags:                    # Run only tagged tasks
+      - deploy
+      - configure
+      extra_vars:
+        app_version: "1.2.3"
+      setup_commands:          # Run before playbook
+      - "pip install boto3"
+```
 
 ### Example: Terraform Resource
 
@@ -138,6 +180,18 @@ resources:
       bucket: terraform-state
       key: infra/terraform.tfstate
       region: us-east-1
+
+jobs:
+- name: provision
+  plan:
+  - get: infra-repo
+    trigger: true
+  - put: infrastructure
+    params:
+      terraform_source: infra-repo/terraform
+      vars:
+        instance_type: t3.medium
+        environment: production
 ```
 
 ---
