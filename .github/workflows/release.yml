@@ -5,30 +5,66 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create Release Archive
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build full plugin package
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          zip -r concourse-ci-skill-${VERSION}.zip \
-            skills/ \
-            .claude-plugin/ \
-            composer.json \
-            LICENSE \
-            README.md
+          mkdir -p dist
+          zip -r "dist/concourse-ci-plugin-${{ steps.version.outputs.VERSION }}.zip" . \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x "dist/*" \
+            -x "*.pyc" \
+            -x "__pycache__/*" \
+            -x ".DS_Store"
+
+      - name: Build concourse-ci skill package
+        run: |
+          SKILL_DIR="skills/concourse-ci"
+          TEMP_DIR=$(mktemp -d)
+
+          # Copy skill contents to temp dir (flat structure for Claude Desktop)
+          cp "$SKILL_DIR/SKILL.md" "$TEMP_DIR/"
+          cp -r "$SKILL_DIR/references" "$TEMP_DIR/"
+          cp -r "$SKILL_DIR/examples" "$TEMP_DIR/"
+          cp -r "$SKILL_DIR/scripts" "$TEMP_DIR/"
+          cp LICENSE "$TEMP_DIR/"
+
+          # Create ZIP from temp dir
+          cd "$TEMP_DIR"
+          zip -r "$GITHUB_WORKSPACE/dist/concourse-ci-skill-${{ steps.version.outputs.VERSION }}.zip" .
+          cd -
+          rm -rf "$TEMP_DIR"
+
+      - name: List packages
+        run: ls -la dist/
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          files: concourse-ci-skill-*.zip
+          files: |
+            dist/concourse-ci-plugin-${{ steps.version.outputs.VERSION }}.zip
+            dist/concourse-ci-skill-${{ steps.version.outputs.VERSION }}.zip
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            ## Downloads
+
+            | Package | Description |
+            |---------|-------------|
+            | `concourse-ci-plugin-${{ steps.version.outputs.VERSION }}.zip` | Full plugin package (for Claude Code plugins) |
+            | `concourse-ci-skill-${{ steps.version.outputs.VERSION }}.zip` | Pure skill package (Claude Desktop compatible) |
+
+            **Claude Desktop users**: Download `concourse-ci-skill-${{ steps.version.outputs.VERSION }}.zip`
+            **Claude Code users**: Use marketplace or download `concourse-ci-plugin-${{ steps.version.outputs.VERSION }}.zip`
