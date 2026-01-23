@@ -63,8 +63,8 @@ jobs:
 
             | Package | Description |
             |---------|-------------|
-            | `concourse-ci-plugin-${{ steps.version.outputs.VERSION }}.zip` | Full plugin package (for Claude Code plugins) |
-            | `concourse-ci-skill-${{ steps.version.outputs.VERSION }}.zip` | Pure skill package (Claude Desktop compatible) |
+            | `concourse-ci-plugin-${{ steps.version.outputs.VERSION }}.zip` | Full plugin package (Claude Code with marketplace/plugin support) |
+            | `concourse-ci-skill-${{ steps.version.outputs.VERSION }}.zip` | Pure skill package (all AI agents without plugin system) |
 
-            **Claude Desktop users**: Download `concourse-ci-skill-${{ steps.version.outputs.VERSION }}.zip`
-            **Claude Code users**: Use marketplace or download `concourse-ci-plugin-${{ steps.version.outputs.VERSION }}.zip`
+            **Claude Code (with plugins)**: Use marketplace or download the plugin package
+            **Other AI agents** (Claude Desktop, Cursor, GitHub Copilot, etc.): Download the skill package
