@@ -1,6 +1,6 @@
 ---
 name: concourse-ci
-description: "Agent Skill: Expert guidance for Concourse CI pipeline development, optimization, and troubleshooting. Covers pipeline creation, resource configuration (git, registry-image, 50+ types), oci-build-task for container builds, across step for multi-env deploys, build_log_retention, YAML anchors, webhook triggers, set_pipeline for dynamic pipelines, and critical gotchas like tag detection after force-push. Targets Concourse v8.0+. By Netresearch."
+description: "Agent Skill: Expert guidance for Concourse CI pipeline development, optimization, and troubleshooting. Covers pipeline creation, resource configuration (git, registry-image, 50+ types), oci-build-task for container builds, across step for multi-env deploys, build_log_retention, YAML anchors, webhook triggers, set_pipeline for dynamic pipelines, and critical gotchas: tag detection after force-push, registry_mirror format differences (registry-image vs docker-image), CONCOURSE_BASE_RESOURCE_TYPE_DEFAULTS config, and GitLab Container Registry JWT auth discovery. Targets Concourse v8.0+. By Netresearch."
 version: 1.2.0
 ---
 
@@ -377,6 +377,45 @@ resources:
 ```
 
 **Best Practice**: Treat tags as immutable; avoid force-pushing release branches.
+
+### registry_mirror Format Mismatch (registry-image vs docker-image)
+
+**Problem**: After upgrading to Concourse 8.x, resource checks fail with `registry_mirror` errors.
+
+**Root Cause**: `registry-image` (pure Go binary) and `docker-image` (Docker daemon) expect completely different `registry_mirror` formats. When `CONCOURSE_BASE_RESOURCE_TYPE_DEFAULTS` on the web node provides a single format, one type breaks.
+
+**Errors**:
+- `json: cannot unmarshal string into Go struct field Source.source.registry_mirror of type resource.RegistryMirror` — string passed to `registry-image` which expects an object
+- `registries must be valid RFC 3986 URI authorities: https://...` — scheme included in `host` field
+
+**Solution**: Provide separate formats in resource type defaults:
+
+```yaml
+# CONCOURSE_BASE_RESOURCE_TYPE_DEFAULTS
+registry-image:
+  registry_mirror:
+    host: mirror.example.com              # Object with bare hostname (no scheme)
+
+docker-image:
+  registry_mirror: https://mirror.example.com  # Plain URL string
+```
+
+See `references/resources-guide.md` for Ansible template patterns and full details.
+
+### GitLab Container Registry JWT Auth Endpoint
+
+**Problem**: CI tasks that check container registries fail with `Failed to obtain registry token`.
+
+**Root Cause**: JWT auth endpoint is on the **GitLab host** (e.g., `git.example.com/jwt/auth`), NOT the registry host (e.g., `registry.example.com/jwt/auth`).
+
+**Solution**: Never hardcode the JWT URL. Discover it from the `Www-Authenticate` header:
+
+```bash
+curl -s -D - "https://${REGISTRY_URL}/v2/" | grep -i www-authenticate
+# Returns: Bearer realm="https://git.example.com/jwt/auth",service="container_registry"
+```
+
+See `references/resources-guide.md` for the full discovery script pattern.
 
 ## Additional Resources
 

@@ -227,9 +227,13 @@ resources:
       tls_key: ((tls.key))
       tls_cert: ((tls.cert))
 
-    # Fallback registry
+    # Fallback registry mirror
+    # ⚠️ CRITICAL: registry_mirror must be an OBJECT, not a string!
+    # The host field must be a bare hostname (RFC 3986 authority) — NO scheme.
+    # See "registry_mirror Format Differences" section below.
     registry_mirror:
-      host: mirror.example.com
+      host: mirror.example.com            # ✅ Correct: hostname only
+      # host: https://mirror.example.com  # ❌ Wrong: includes scheme
       username: ((mirror.user))
       password: ((mirror.pass))
 
@@ -404,6 +408,85 @@ resources:
   params:
     release: env-lock
 ```
+
+---
+
+## registry_mirror Format Differences (registry-image vs docker-image)
+
+> **⚠️ CRITICAL GOTCHA**: `registry-image` and `docker-image` expect completely different formats for `registry_mirror`. Getting this wrong causes opaque errors at check time.
+
+### registry-image (modern, pure Go binary — no Docker daemon)
+
+```yaml
+registry-image:
+  registry_mirror:
+    host: registry-mirror.example.com     # Object with host field
+    # host must be RFC 3986 URI authority = hostname only, NO scheme
+```
+
+**Errors if misconfigured:**
+- Passing a **string** instead of object: `json: cannot unmarshal string into Go struct field Source.source.registry_mirror of type resource.RegistryMirror`
+- Including **scheme** in host: `registries must be valid RFC 3986 URI authorities: https://registry-mirror.example.com`
+
+### docker-image (legacy, has Docker daemon internally)
+
+```yaml
+docker-image:
+  registry_mirror: https://registry-mirror.example.com  # Plain URL string with scheme
+```
+
+Docker daemon handles the URL parsing internally, so it accepts the full URL.
+
+### CONCOURSE_BASE_RESOURCE_TYPE_DEFAULTS interaction
+
+Concourse web nodes can inject default `source` params into all resource type checks via `CONCOURSE_BASE_RESOURCE_TYPE_DEFAULTS`. This is typically configured in `/etc/concourse/ressource-type-defaults.yml` (Ansible-managed). The config must provide **both** formats:
+
+```yaml
+registry-image:
+  registry_mirror:
+    host: registry-mirror.example.com       # Object format for registry-image
+
+docker-image:
+  registry_mirror: https://registry-mirror.example.com  # String format for docker-image
+```
+
+**Note**: This is a **web node** setting, not a worker setting. Restart `concourse-web` after changes.
+
+### Ansible role template pattern (Jinja2)
+
+When the mirror URL variable includes a scheme (e.g., `https://registry-mirror.example.com`), strip it for the `registry-image` host field:
+
+```jinja2
+registry-image:
+  registry_mirror:
+    host: {{ concourse_worker_registry_mirror_url | regex_replace('^https?://', '') }}
+
+docker-image:
+  registry_mirror: {{ concourse_worker_registry_mirror_url }}
+```
+
+---
+
+## GitLab Container Registry JWT Auth Discovery
+
+> **⚠️ GOTCHA**: The JWT auth endpoint for GitLab Container Registry is on the **GitLab host**, NOT the registry host.
+
+When scripting against a GitLab Container Registry (e.g., `registry.example.com`), never hardcode the JWT auth URL. Discover it dynamically:
+
+```bash
+# Discover auth realm from registry's Www-Authenticate header
+AUTH_HEADER=$(curl -s -o /dev/null -D - "https://${REGISTRY_URL}/v2/" \
+  | grep -i www-authenticate)
+REALM=$(echo "${AUTH_HEADER}" | sed -n 's/.*realm="\([^"]*\)".*/\1/p')
+SERVICE=$(echo "${AUTH_HEADER}" | sed -n 's/.*service="\([^"]*\)".*/\1/p')
+
+# Request token
+TOKEN=$(curl -sf -u "${USER}:${PASSWORD}" \
+  "${REALM}?service=${SERVICE}&scope=repository:${REPO}:pull" \
+  | jq -r '.token')
+```
+
+**Example**: For `registry.netresearch.de`, the realm is `https://git.netresearch.de/jwt/auth` (GitLab host), not `https://registry.netresearch.de/jwt/auth`.
 
 ---
 
