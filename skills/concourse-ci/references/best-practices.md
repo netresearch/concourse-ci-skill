@@ -892,3 +892,21 @@ Trigger downstream pipelines by pushing to other repositories:
 2. Check network connectivity from workers
 3. Verify worker tags match resource tags
 4. Check for rate limiting on external services
+
+### registry_mirror Errors
+
+**Error**: `json: cannot unmarshal string into Go struct field Source.source.registry_mirror of type resource.RegistryMirror`
+- **Cause**: `CONCOURSE_BASE_RESOURCE_TYPE_DEFAULTS` passes `registry_mirror` as a plain string, but `registry-image` resource expects an object
+- **Fix**: Change config to `registry_mirror: { host: "hostname" }` for `registry-image` entries
+- **Note**: `docker-image` still needs the plain string format — provide both in defaults config
+
+**Error**: `registries must be valid RFC 3986 URI authorities: https://mirror.example.com`
+- **Cause**: `registry_mirror.host` includes URL scheme (`https://`)
+- **Fix**: Strip scheme — host must be bare hostname only (e.g., `mirror.example.com`)
+
+**Error**: `Failed to obtain registry token` (from CI tasks checking registry)
+- **Cause**: JWT auth URL hardcoded to registry host, but GitLab Container Registry auth endpoint is on the GitLab host
+- **Fix**: Discover auth realm dynamically from registry's `Www-Authenticate` header on `/v2/`
+- **Example**: `registry.example.com` may have auth at `git.example.com/jwt/auth`
+
+See `resources-guide.md` for detailed format reference and Ansible template patterns.
