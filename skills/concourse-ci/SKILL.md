@@ -23,13 +23,13 @@ Expert guidance for writing, refactoring, and optimizing Concourse CI pipelines 
 | Building images | `oci-build-task` + `registry-image` | `docker-image` resource |
 | Multi-env deploys | `across` step modifier | Duplicate jobs per env |
 | Dynamic pipelines | `set_pipeline` + instanced pipelines | Manual pipeline duplication |
-| Notification symbols | UTF-8 characters | HTML entities |
+| Notification symbols | UTF-8 characters (e.g. `\u2714` for checkmark, `\u274c` for X) | HTML entities (e.g. `&check;`, `&cross;`) |
 | Resource styling | Always use `icon:` property | No icon |
 
 ### fly CLI Essentials
 
 ```bash
-fly -t target set-pipeline -p name -c pipeline.yml -l vars.yml
+fly -t target set-pipeline -p pipeline-name -c pipeline.yml -l vars.yml
 fly -t target check-resource -r pipeline/resource-name
 fly -t target trigger-job -j pipeline/job-name -w
 fly -t target hijack -j pipeline/job-name -s step-name
@@ -49,7 +49,9 @@ Pipelines consist of **resources** (external versioned artifacts), **jobs** (seq
 | `task` | Execute containerized work |
 | `set_pipeline` | Dynamic pipeline config |
 | `in_parallel` | Concurrent execution |
-| `do` / `try` | Sequential / continue-on-failure |
+| `do` | Sequential execution (all steps in order) |
+| `try` | Continue on failure (wraps a step) |
+| `load_var` | Load value into a local var from file or literal |
 
 ### Job Lifecycle Hooks
 
