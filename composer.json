@@ -6,7 +6,6 @@
   "authors": [
     {
       "name": "Netresearch DTT GmbH",
-      "email": "info@netresearch.de",
       "homepage": "https://www.netresearch.de/",
       "role": "Manufacturer"
     }
@@ -25,5 +24,9 @@
     "devops",
     "ai-agent-skill",
     "claude-code"
-  ]
+  ],
+  "support": {
+    "issues": "https://github.com/netresearch/concourse-ci-skill/issues",
+    "source": "https://github.com/netresearch/concourse-ci-skill"
+  }
 }
