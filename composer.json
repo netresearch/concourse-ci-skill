@@ -1,5 +1,8 @@
 {
-  "name": "netresearch/agent-concourse-ci-skill",
+  "name": "netresearch/concourse-ci-skill",
+  "replace": {
+    "netresearch/agent-concourse-ci-skill": "self.version"
+  },
   "description": "Agent Skill for Concourse CI pipeline development - writing, optimization, debugging | Claude Code compatible",
   "type": "ai-agent-skill",
   "license": "MIT",
