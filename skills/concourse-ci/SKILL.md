@@ -1,7 +1,6 @@
 ---
 name: concourse-ci
 description: "Use when developing Concourse CI pipelines, configuring resources, troubleshooting builds, or optimizing CI/CD with Concourse v8+."
-version: 1.2.0
 ---
 
 # Concourse CI Pipeline Development
