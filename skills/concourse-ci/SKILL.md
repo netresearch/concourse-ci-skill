@@ -25,44 +25,13 @@ Expert guidance for writing, refactoring, and optimizing Concourse CI pipelines 
 | Notification symbols | UTF-8 characters (e.g. `\u2714` for checkmark, `\u274c` for X) | HTML entities (e.g. `&check;`, `&cross;`) |
 | Resource styling | Always use `icon:` property | No icon |
 
-### fly CLI Essentials
-
-```bash
-fly -t target set-pipeline -p pipeline-name -c pipeline.yml -l vars.yml
-fly -t target check-resource -r pipeline/resource-name
-fly -t target trigger-job -j pipeline/job-name -w
-fly -t target hijack -j pipeline/job-name -s step-name
-fly -t target validate-pipeline -c pipeline.yml
-```
-
 ## Core Concepts
 
 Pipelines consist of **resources** (external versioned artifacts), **jobs** (sequences of steps), and optional **groups** (UI organization). All execution runs in containers.
 
-### Step Types
+Key step types: `get`, `put`, `task`, `set_pipeline`, `in_parallel`, `do`, `try`, `load_var`. Job hooks: `on_success`, `on_failure`, `on_error`, `on_abort`, `ensure`. Note: `on_failure` (exit code 1) differs from `on_error` (container crash) -- handle both.
 
-| Step | Purpose |
-|------|---------|
-| `get` | Fetch resource version |
-| `put` | Update/push resource |
-| `task` | Execute containerized work |
-| `set_pipeline` | Dynamic pipeline config |
-| `in_parallel` | Concurrent execution |
-| `do` | Sequential execution (all steps in order) |
-| `try` | Continue on failure (wraps a step) |
-| `load_var` | Load value into a local var from file or literal |
-
-### Job Lifecycle Hooks
-
-| Hook | Triggers When |
-|------|---------------|
-| `on_success` | Step/job succeeds |
-| `on_failure` | Non-zero exit (task failure) |
-| `on_error` | Infrastructure error (OOM, timeout) |
-| `on_abort` | Build manually aborted |
-| `ensure` | Always runs regardless of outcome |
-
-**Important**: `on_failure` (exit code 1) is different from `on_error` (container crash). Handle both.
+See `references/core-concepts.md` for step types table, lifecycle hooks, and fly CLI essentials.
 
 ## Critical Gotchas
 
@@ -73,6 +42,7 @@ Pipelines consist of **resources** (external versioned artifacts), **jobs** (seq
 ## References
 
 - `references/pipeline-syntax.md` -- Complete YAML schema for pipelines, jobs, resources
+- `references/core-concepts.md` -- Step types, lifecycle hooks, fly CLI essentials
 - `references/resources-guide.md` -- Git-resource, registry-image, docker-image migration, gotcha details
 - `references/best-practices.md` -- Optimization, troubleshooting, notifications, deployment patterns
 - `references/resource-types-catalog.md` -- Available resource types (Ansible, Terraform, etc.)
