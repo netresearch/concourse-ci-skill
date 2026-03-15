@@ -1,14 +1,14 @@
 {
-    "name": "concourse-ci",
-    "version": "1.2.4",
-    "description": "Expert guidance for Concourse CI pipeline development, optimization, and troubleshooting",
-    "repository": "https://github.com/netresearch/concourse-ci-skill",
-    "license": "(MIT AND CC-BY-SA-4.0)",
-    "author": {
-        "name": "Netresearch DTT GmbH",
-        "url": "https://www.netresearch.de"
-    },
-    "skills": [
-        "./skills/concourse-ci"
-    ]
+  "name": "concourse-ci",
+  "version": "1.2.5",
+  "description": "Expert guidance for Concourse CI pipeline development, optimization, and troubleshooting",
+  "repository": "https://github.com/netresearch/concourse-ci-skill",
+  "license": "(MIT AND CC-BY-SA-4.0)",
+  "author": {
+    "name": "Netresearch DTT GmbH",
+    "url": "https://www.netresearch.de"
+  },
+  "skills": [
+    "./skills/concourse-ci"
+  ]
 }
