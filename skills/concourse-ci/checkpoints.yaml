@@ -62,6 +62,62 @@ mechanical:
     severity: error
     desc: "Pipeline must not contain hardcoded secrets (use var_sources or params)"
 
+  # === ENSURE HOOKS ===
+  - id: CC-09
+    type: command
+    pattern: "find . -name '*.yml' -path '*/ci/*' -o -name 'pipeline*.yml' -o -name '*-pipeline.yml' | head -1 | xargs grep -q 'ensure:' 2>/dev/null || true"
+    severity: info
+    desc: "Jobs should use ensure blocks for cleanup tasks"
+
+  # === SERIAL GROUPS ===
+  - id: CC-10
+    type: command
+    pattern: "find . -name '*.yml' -path '*/ci/*' -o -name 'pipeline*.yml' -o -name '*-pipeline.yml' | head -1 | xargs grep -qE 'serial:|serial_groups:' 2>/dev/null || true"
+    severity: info
+    desc: "Jobs that should not run concurrently should use serial or serial_groups"
+
+  # === GROUPS DEFINED ===
+  - id: CC-11
+    type: command
+    pattern: "find . -name '*.yml' -path '*/ci/*' -o -name 'pipeline*.yml' -o -name '*-pipeline.yml' | head -1 | xargs grep -q 'groups:' 2>/dev/null || true"
+    severity: info
+    desc: "Pipeline should define groups for UI organization"
+
+  # === REGEX DOT ESCAPING IN TAG FILTER ===
+  - id: CC-12
+    type: command
+    pattern: "! find . -name '*.yml' -path '*/ci/*' -o -name 'pipeline*.yml' -o -name '*-pipeline.yml' | xargs grep -E 'tag_regex:.*\\[0-9\\]\\+\\.[0-9\\]' 2>/dev/null | grep -v '\\\\\\.' | head -1 | grep -q . 2>/dev/null"
+    severity: warning
+    desc: "Git resource tag_regex must escape literal dots (use \\\\. not .)"
+
+  # === ON_ERROR HOOK ===
+  - id: CC-13
+    type: command
+    pattern: "find . -name '*.yml' -path '*/ci/*' -o -name 'pipeline*.yml' -o -name '*-pipeline.yml' | head -1 | xargs grep -q 'on_error:' 2>/dev/null || true"
+    severity: info
+    desc: "Jobs should handle on_error (container crash) separately from on_failure (exit code 1)"
+
+  # === CLEAN_TAGS FOR GIT RESOURCES ===
+  - id: CC-14
+    type: command
+    pattern: "! find . -name '*.yml' -path '*/ci/*' -o -name 'pipeline*.yml' -o -name '*-pipeline.yml' | xargs grep -l 'tag_regex:' 2>/dev/null | xargs grep -L 'clean_tags: true' | head -1 | grep -q . 2>/dev/null"
+    severity: warning
+    desc: "Git resources with tag_regex should enable clean_tags: true"
+
+  # === PARAMETERIZED CREDENTIALS ===
+  - id: CC-15
+    type: command
+    pattern: "find . -name '*.yml' -path '*/ci/*' -o -name 'pipeline*.yml' -o -name '*-pipeline.yml' | head -1 | xargs grep -qE '\\(\\(' 2>/dev/null || true"
+    severity: warning
+    desc: "Pipeline should use parameterized credentials ((var)) instead of hardcoded values"
+
+  # === PARALLEL EXECUTION ===
+  - id: CC-16
+    type: command
+    pattern: "find . -name '*.yml' -path '*/ci/*' -o -name 'pipeline*.yml' -o -name '*-pipeline.yml' | head -1 | xargs grep -qE 'in_parallel:|across:' 2>/dev/null || true"
+    severity: info
+    desc: "Pipeline should use in_parallel or across for concurrent execution"
+
 llm_reviews:
   - id: CC-20
     domain: ci-quality
