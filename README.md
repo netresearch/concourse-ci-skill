@@ -27,26 +27,40 @@
 
 ## Installation
 
-### Via Marketplace (Recommended)
+### Marketplace (Recommended)
+
+Add the [Netresearch marketplace](https://github.com/netresearch/claude-code-marketplace) once, then browse and install skills:
 
 ```bash
+# Claude Code
 /plugin marketplace add netresearch/claude-code-marketplace
 ```
 
-### Manual Installation
+### npx ([skills.sh](https://skills.sh))
 
-Download from the [latest release](https://github.com/netresearch/concourse-ci-skill/releases/latest) and extract to:
-
-```bash
-~/.claude/skills/concourse-ci-skill/
-```
-
-### Via Composer (PHP Projects)
+Install with any [Agent Skills](https://agentskills.io)-compatible agent:
 
 ```bash
-composer require netresearch/agent-concourse-ci-skill
+npx skills add https://github.com/netresearch/concourse-ci-skill --skill concourse-ci
 ```
 
+### Download Release
+
+Download the [latest release](https://github.com/netresearch/concourse-ci-skill/releases/latest) and extract to your agent's skills directory.
+
+### Git Clone
+
+```bash
+git clone https://github.com/netresearch/concourse-ci-skill.git
+```
+
+### Composer (PHP Projects)
+
+```bash
+composer require netresearch/concourse-ci-skill
+```
+
+Requires [netresearch/composer-agent-skill-plugin](https://github.com/netresearch/composer-agent-skill-plugin).
 ## Usage
 
 The skill activates automatically when you work with Concourse CI topics:
