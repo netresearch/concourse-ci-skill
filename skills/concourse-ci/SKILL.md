@@ -1,6 +1,6 @@
 ---
 name: concourse-ci
-description: "ALWAYS use for ANY Concourse CI task: writing pipelines, configuring resources, building images with oci-build-task, troubleshooting failing jobs, migrating from legacy patterns, or optimizing CI/CD. Triggers on: Concourse, pipeline, fly CLI, resource type, oci-build-task, set_pipeline, concourse.yml."
+description: "Use when working with ANY Concourse CI task: writing pipelines, configuring resources, building images with oci-build-task, troubleshooting failing jobs, migrating from legacy patterns, or optimizing CI/CD. Triggers on: Concourse, pipeline, fly CLI, resource type, oci-build-task, set_pipeline, concourse.yml."
 license: "(MIT AND CC-BY-SA-4.0)"
 compatibility: "Requires fly CLI, yq."
 metadata:
