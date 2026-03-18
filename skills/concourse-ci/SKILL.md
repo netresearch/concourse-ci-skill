@@ -1,6 +1,19 @@
 ---
 name: concourse-ci
-description: "Use when developing Concourse CI pipelines, configuring resources, troubleshooting builds, or optimizing CI/CD with Concourse v8+."
+description: "ALWAYS use for ANY Concourse CI task: writing pipelines, configuring resources, building images with oci-build-task, troubleshooting failing jobs, migrating from legacy patterns, or optimizing CI/CD. Triggers on: Concourse, pipeline, fly CLI, resource type, oci-build-task, set_pipeline, concourse.yml."
+license: "(MIT AND CC-BY-SA-4.0)"
+compatibility: "Requires fly CLI, yq."
+metadata:
+  version: "1.3.0"
+  repository: "https://github.com/netresearch/concourse-ci-skill"
+  author: "Netresearch DTT GmbH"
+allowed-tools:
+  - "Bash(fly:*)"
+  - "Bash(yq:*)"
+  - "Read"
+  - "Write"
+  - "Glob"
+  - "Grep"
 ---
 
 # Concourse CI Pipeline Development
