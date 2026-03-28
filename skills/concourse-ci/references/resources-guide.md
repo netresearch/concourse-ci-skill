@@ -439,7 +439,7 @@ Docker daemon handles the URL parsing internally, so it accepts the full URL.
 
 ### CONCOURSE_BASE_RESOURCE_TYPE_DEFAULTS interaction
 
-Concourse web nodes can inject default `source` params into all resource type checks via `CONCOURSE_BASE_RESOURCE_TYPE_DEFAULTS`. This is typically configured in `/etc/concourse/ressource-type-defaults.yml` (Ansible-managed). The config must provide **both** formats:
+Concourse web nodes can inject default `source` params into all resource type checks via `CONCOURSE_BASE_RESOURCE_TYPE_DEFAULTS`. This is typically configured in `/etc/concourse/resource-type-defaults.yml` (Ansible-managed). The config must provide **both** formats:
 
 ```yaml
 registry-image:
@@ -477,6 +477,10 @@ When scripting against a GitLab Container Registry (e.g., `registry.example.com`
 # Discover auth realm from registry's Www-Authenticate header
 AUTH_HEADER=$(curl -s -o /dev/null -D - "https://${REGISTRY_URL}/v2/" \
   | grep -i www-authenticate)
+if [ -z "${AUTH_HEADER}" ]; then
+  echo "Error: Failed to get Www-Authenticate header from ${REGISTRY_URL}" >&2
+  exit 1
+fi
 REALM=$(echo "${AUTH_HEADER}" | sed -n 's/.*realm="\([^"]*\)".*/\1/p')
 SERVICE=$(echo "${AUTH_HEADER}" | sed -n 's/.*service="\([^"]*\)".*/\1/p')
 
