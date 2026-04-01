@@ -1,33 +1,433 @@
 [
   {
     "name": "create-ci-pipeline",
-    "prompt": "Create a Concourse CI pipeline for this project",
+    "prompt": "Create a Concourse CI pipeline for a Node.js project with build, test, and deploy stages",
     "assertions": [
-      {
-        "type": "tool_use",
-        "tool": "Glob",
-        "description": "Scans for existing pipeline files and project structure"
-      },
       {
         "type": "content_contains",
         "value": "jobs:",
         "description": "Generates pipeline YAML with jobs definition"
+      },
+      {
+        "type": "content_contains",
+        "value": "resources:",
+        "description": "Defines resources section"
+      },
+      {
+        "type": "content_contains",
+        "value": "registry-image",
+        "description": "Uses modern registry-image type instead of docker-image"
+      },
+      {
+        "type": "content_contains",
+        "value": "icon:",
+        "description": "Sets icon property on resources"
       }
     ]
   },
   {
-    "name": "troubleshoot-failing-pipeline",
-    "prompt": "Troubleshoot this failing Concourse pipeline",
+    "name": "oci-build-task-setup",
+    "prompt": "Show me how to build a Docker image in Concourse CI and push it to a private registry",
     "assertions": [
       {
-        "type": "tool_use",
-        "tool": "Read",
-        "description": "Reads pipeline YAML to diagnose issues"
+        "type": "content_contains",
+        "value": "oci-build-task",
+        "description": "Uses modern oci-build-task instead of docker-image resource"
       },
       {
         "type": "content_contains",
-        "value": "resource",
-        "description": "Analyzes resource configuration for common issues"
+        "value": "privileged: true",
+        "description": "Sets privileged flag required for oci-build-task"
+      },
+      {
+        "type": "content_contains",
+        "value": "image/image.tar",
+        "description": "References correct output path for built image"
+      },
+      {
+        "type": "content_contains",
+        "value": "registry-image",
+        "description": "Uses registry-image for pushing, not docker-image"
+      }
+    ]
+  },
+  {
+    "name": "troubleshoot-resource-check-failure",
+    "prompt": "My Concourse pipeline's git resource stopped detecting new tags after a force push to main. How do I fix this?",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "clean_tags",
+        "description": "Recommends enabling clean_tags: true"
+      },
+      {
+        "type": "content_contains",
+        "value": "check-resource",
+        "description": "Suggests fly check-resource command to force recheck"
+      }
+    ]
+  },
+  {
+    "name": "migrate-docker-image-to-oci",
+    "prompt": "I have a Concourse pipeline using the docker-image resource type to build and push images. Migrate it to the modern approach.",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "oci-build-task",
+        "description": "Migrates to oci-build-task for building"
+      },
+      {
+        "type": "content_contains",
+        "value": "registry-image",
+        "description": "Uses registry-image resource for push"
+      },
+      {
+        "type": "content_contains",
+        "value": "image/image.tar",
+        "description": "Uses correct oci-build-task output path"
+      },
+      {
+        "type": "content_contains",
+        "value": "deprecated",
+        "description": "Explains docker-image is deprecated"
+      }
+    ]
+  },
+  {
+    "name": "fly-cli-pipeline-management",
+    "prompt": "How do I validate, set, and manage a Concourse pipeline using the fly CLI? Include variable files.",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "validate-pipeline",
+        "description": "Shows fly validate-pipeline command"
+      },
+      {
+        "type": "content_contains",
+        "value": "set-pipeline",
+        "description": "Shows fly set-pipeline command"
+      },
+      {
+        "type": "content_contains",
+        "value": "-l",
+        "description": "Shows variable file flag for loading vars"
+      }
+    ]
+  },
+  {
+    "name": "across-step-modifier",
+    "prompt": "I have 3 duplicate Concourse jobs that deploy to dev, staging, and prod. How do I consolidate them using modern patterns?",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "across",
+        "description": "Recommends across step modifier"
+      },
+      {
+        "type": "content_contains",
+        "value": "max_in_flight",
+        "description": "Shows how to control concurrency with across"
+      },
+      {
+        "type": "content_contains",
+        "value": "((.:env))",
+        "description": "Uses local variable syntax for across values"
+      }
+    ]
+  },
+  {
+    "name": "registry-mirror-configuration",
+    "prompt": "I'm getting 'json: cannot unmarshal string into Go struct field Source.source.registry_mirror of type resource.RegistryMirror' in Concourse. What's wrong?",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "registry-image",
+        "description": "Explains registry-image expects an object format"
+      },
+      {
+        "type": "content_contains",
+        "value": "host:",
+        "description": "Shows correct object format with host field"
+      },
+      {
+        "type": "content_contains",
+        "value": "docker-image",
+        "description": "Explains docker-image uses a different string format"
+      }
+    ]
+  },
+  {
+    "name": "set-pipeline-dynamic-branches",
+    "prompt": "How do I create dynamic Concourse pipelines that automatically create a pipeline per feature branch?",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "set_pipeline",
+        "description": "Uses set_pipeline step for dynamic pipelines"
+      },
+      {
+        "type": "content_contains",
+        "value": "instance_vars",
+        "description": "Shows instanced pipelines with instance_vars"
+      }
+    ]
+  },
+  {
+    "name": "notification-setup",
+    "prompt": "Add Slack notifications to a Concourse pipeline that notify on build success and failure",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "resource_types:",
+        "description": "Defines custom resource type for notifications"
+      },
+      {
+        "type": "content_contains",
+        "value": "on_success",
+        "description": "Configures success notifications"
+      },
+      {
+        "type": "content_contains",
+        "value": "on_failure",
+        "description": "Configures failure notifications"
+      },
+      {
+        "type": "content_contains",
+        "value": "webhook",
+        "description": "Uses webhook URL for Slack integration"
+      }
+    ]
+  },
+  {
+    "name": "git-tag-regex-escaping",
+    "prompt": "Write a Concourse git resource that tracks semantic version tags like v1.2.3",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "tag_regex",
+        "description": "Uses tag_regex for semver matching"
+      },
+      {
+        "type": "content_contains",
+        "value": "\\\\.",
+        "description": "Escapes dots in regex pattern"
+      },
+      {
+        "type": "content_contains",
+        "value": "clean_tags: true",
+        "description": "Enables clean_tags for reliable tag detection"
+      }
+    ]
+  },
+  {
+    "name": "yaml-anchors-dry-config",
+    "prompt": "My Concourse pipeline has the same git credentials repeated in 5 resources. How do I DRY this up?",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "&",
+        "description": "Defines YAML anchors for reusable config"
+      },
+      {
+        "type": "content_contains",
+        "value": "<<:",
+        "description": "Uses YAML merge key to apply anchors"
+      }
+    ]
+  },
+  {
+    "name": "task-caching-optimization",
+    "prompt": "My Concourse CI builds are slow because npm install runs fresh every time. How do I cache node_modules?",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "caches:",
+        "description": "Uses task caching for dependencies"
+      },
+      {
+        "type": "content_contains",
+        "value": "node_modules",
+        "description": "Caches the node_modules directory"
+      }
+    ]
+  },
+  {
+    "name": "hijack-debugging",
+    "prompt": "How do I debug a failing Concourse CI task interactively? I need to inspect the container.",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "hijack",
+        "description": "Uses fly hijack to access container"
+      },
+      {
+        "type": "content_contains",
+        "value": "fly",
+        "description": "Uses fly CLI for debugging"
+      }
+    ]
+  },
+  {
+    "name": "var-sources-vault",
+    "prompt": "Configure a Concourse pipeline to pull secrets from HashiCorp Vault instead of hardcoding credentials",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "var_sources",
+        "description": "Configures var_sources section"
+      },
+      {
+        "type": "content_contains",
+        "value": "vault",
+        "description": "Uses vault type for secrets"
+      },
+      {
+        "type": "content_contains",
+        "value": "((",
+        "description": "Uses parameterized credential syntax"
+      }
+    ]
+  },
+  {
+    "name": "in-parallel-execution",
+    "prompt": "I have 4 independent test suites in my Concourse pipeline. How do I run them in parallel with a concurrency limit?",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "in_parallel",
+        "description": "Uses in_parallel step"
+      },
+      {
+        "type": "content_contains",
+        "value": "limit:",
+        "description": "Sets concurrency limit"
+      },
+      {
+        "type": "content_contains",
+        "value": "fail_fast",
+        "description": "Mentions fail_fast option"
+      }
+    ]
+  },
+  {
+    "name": "on-error-vs-on-failure",
+    "prompt": "What's the difference between on_failure and on_error hooks in Concourse CI? When should I use each?",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "on_failure",
+        "description": "Explains on_failure hook"
+      },
+      {
+        "type": "content_contains",
+        "value": "on_error",
+        "description": "Explains on_error hook"
+      },
+      {
+        "type": "content_contains",
+        "value": "exit",
+        "description": "Mentions exit code as the distinction"
+      }
+    ]
+  },
+  {
+    "name": "build-log-retention",
+    "prompt": "Our Concourse instance is running out of disk space from build logs. How do I configure log retention?",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "build_log_retention",
+        "description": "Configures build_log_retention on jobs"
+      },
+      {
+        "type": "content_contains",
+        "value": "days:",
+        "description": "Sets retention by days"
+      },
+      {
+        "type": "content_contains",
+        "value": "builds:",
+        "description": "Sets retention by build count"
+      }
+    ]
+  },
+  {
+    "name": "resource-types-custom",
+    "prompt": "How do I add a Terraform resource type to my Concourse pipeline and use it for infrastructure provisioning?",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "resource_types:",
+        "description": "Defines custom resource type"
+      },
+      {
+        "type": "content_contains",
+        "value": "terraform",
+        "description": "References terraform resource"
+      },
+      {
+        "type": "content_contains",
+        "value": "registry-image",
+        "description": "Uses registry-image as resource type base"
+      }
+    ]
+  },
+  {
+    "name": "serial-groups-deployment",
+    "prompt": "How do I prevent two Concourse deployment jobs from running at the same time?",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "serial_groups",
+        "description": "Uses serial_groups to coordinate jobs"
+      }
+    ]
+  },
+  {
+    "name": "load-var-dynamic-config",
+    "prompt": "I need to read a version number from a file in my Concourse pipeline and use it in subsequent steps",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "load_var",
+        "description": "Uses load_var step to read file content"
+      },
+      {
+        "type": "content_contains",
+        "value": "((.:var",
+        "description": "References local variable with correct syntax"
+      }
+    ]
+  },
+  {
+    "name": "gitlab-container-registry-auth",
+    "prompt": "I'm getting 'Failed to obtain registry token' when my Concourse pipeline tries to pull from a GitLab Container Registry. How do I fix the auth?",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "Www-Authenticate",
+        "description": "Explains JWT auth discovery via Www-Authenticate header"
+      },
+      {
+        "type": "content_contains",
+        "value": "realm",
+        "description": "Mentions auth realm discovery"
+      }
+    ]
+  },
+  {
+    "name": "pipeline-groups-ui",
+    "prompt": "My Concourse pipeline has 15 jobs and the UI is hard to navigate. How do I organize them?",
+    "assertions": [
+      {
+        "type": "content_contains",
+        "value": "groups:",
+        "description": "Uses groups for UI organization"
+      },
+      {
+        "type": "content_contains",
+        "value": "jobs:",
+        "description": "Lists jobs in groups"
       }
     ]
   }
