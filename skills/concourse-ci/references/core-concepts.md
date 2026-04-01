@@ -33,4 +33,6 @@ fly -t target check-resource -r pipeline/resource-name
 fly -t target trigger-job -j pipeline/job-name -w
 fly -t target hijack -j pipeline/job-name -s step-name
 fly -t target validate-pipeline -c pipeline.yml
+fly -t target execute -c task.yml -i source=.    # Run task locally
+fly -t target execute --include-ignored -c task.yml -i source=.
 ```
