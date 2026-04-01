@@ -42,13 +42,13 @@ Expert guidance for writing, refactoring, and optimizing Concourse CI pipelines 
 
 Pipelines consist of **resources** (external versioned artifacts), **jobs** (sequences of steps), and optional **groups** (UI organization). All execution runs in containers.
 
-Key step types: `get`, `put`, `task`, `set_pipeline`, `in_parallel`, `do`, `try`, `load_var`. Job hooks: `on_success`, `on_failure`, `on_error`, `on_abort`, `ensure`. Note: `on_failure` (exit code 1) differs from `on_error` (container crash) -- handle both.
+Key step types: `get`, `put`, `task`, `set_pipeline`, `in_parallel`, `do`, `try`, `load_var`. Job hooks: `on_success`, `on_failure`, `on_error`, `on_abort`, `ensure`. Note: `on_failure` (non-zero exit) differs from `on_error` (infrastructure crash/OOM) -- handle both. Use `fly execute` to test tasks locally.
 
 See `references/core-concepts.md` for step types table, lifecycle hooks, and fly CLI essentials.
 
 ## Critical Gotchas
 
-1. **Git tag detection after force-push** -- Escape regex dots, enable `clean_tags: true`, separate read/write resources. See `references/resources-guide.md`.
+1. **Git tag detection after force-push** -- Escape regex dots, enable `clean_tags: true`, separate read/write resources, force recheck with `fly -t T check-resource -r pipeline/resource`. See `references/resources-guide.md`.
 2. **registry_mirror format mismatch** -- `registry-image` expects an object (`host: mirror`), `docker-image` expects a URL string. Provide separate formats in `CONCOURSE_BASE_RESOURCE_TYPE_DEFAULTS`. See `references/resources-guide.md`.
 3. **GitLab Container Registry JWT auth** -- The JWT endpoint lives on the GitLab host, not the registry host. Discover via `Www-Authenticate` header. See `references/resources-guide.md`.
 
