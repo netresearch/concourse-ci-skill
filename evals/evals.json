@@ -380,6 +380,11 @@
         "type": "content_contains",
         "value": "serial_groups",
         "description": "Uses serial_groups to coordinate jobs"
+      },
+      {
+        "type": "content_contains",
+        "value": "serial",
+        "description": "Explains serial execution to prevent concurrent deployments"
       }
     ]
   },
