@@ -24,7 +24,7 @@
   "aiAgentSkill": "skills/concourse-ci/SKILL.md",
   "files": [
     "skills/concourse-ci/",
-    "scripts/",
+    "AGENTS.md",
     "LICENSE-MIT",
     "LICENSE-CC-BY-SA-4.0",
     "README.md"
