@@ -143,3 +143,21 @@ llm_reviews:
       5. Are task configs inline or properly externalized in separate files?
     severity: info
     desc: "Pipeline operational robustness review"
+
+  - id: CC-22
+    domain: ci-quality
+    prompt: |
+      Review all YAML anchors used as shared variable groups (e.g. vault-vars-generic,
+      common-params, shared-env). For each one:
+      1. Does it contain credentials or sensitive variables that are only meaningful for one
+         environment (e.g. prod-only auth tokens, environment-specific API keys, or credentials
+         that aren't present in all deployment targets)?
+      2. Are there separate per-environment anchors (vault-vars-staging, vault-vars-prod)
+         that should carry these env-specific values instead?
+      3. Placing env-specific credentials in a generic/shared anchor silently passes
+         wrong or missing credentials to the environment that doesn't need them, which
+         can cause authentication conflicts or unexpected behavior.
+      Report any credentials or vars in shared anchors that should be scoped to a
+      specific environment anchor.
+    severity: warning
+    desc: "Environment-specific credentials must not be placed in shared YAML anchors"
