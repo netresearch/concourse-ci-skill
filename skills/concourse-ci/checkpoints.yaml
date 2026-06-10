@@ -118,6 +118,19 @@ mechanical:
     severity: info
     desc: "Pipeline should use in_parallel or across for concurrent execution"
 
+  # === GIT PUSH MIRROR DEFAULT BRANCH ===
+  - id: CC-18
+    type: command
+    pattern: "! grep -rqE 'push.*--mirror' . --include='*.yml' --include='*.sh' 2>/dev/null || true"
+    severity: warning
+    desc: >-
+      Jobs using `git push --mirror` must ensure the target repo's default
+      branch matches a branch that exists in the upstream source. If the
+      target default branch is not present upstream, the pre-receive hook
+      rejects the mirror push with 'pre-receive hook declined'. Set the
+      target repo's default branch to match the upstream branch name before
+      the first mirror push. Learned from OPSCHEM-499.
+
 llm_reviews:
   - id: CC-20
     domain: ci-quality
@@ -143,6 +156,19 @@ llm_reviews:
       5. Are task configs inline or properly externalized in separate files?
     severity: info
     desc: "Pipeline operational robustness review"
+
+  - id: CC-23
+    domain: ci-quality
+    prompt: |
+      Find all pipeline tasks or scripts that use `git push --mirror`. For each one:
+      1. Is the target repository's default branch documented or known to match a branch
+         that exists in the upstream source? A mismatched default branch causes the
+         pre-receive hook to reject the entire mirror push with "pre-receive hook declined".
+      2. Is there a bootstrap step or README note explaining how to initialize the target
+         repo (set default branch) before the first mirror push runs?
+      Report findings with file and line references.
+    severity: warning
+    desc: "Mirror push targets must have their default branch set to match the upstream before first push"
 
   - id: CC-22
     domain: ci-quality
