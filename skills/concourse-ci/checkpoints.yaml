@@ -121,7 +121,7 @@ mechanical:
   # === GIT PUSH MIRROR DEFAULT BRANCH ===
   - id: CC-18
     type: command
-    pattern: "! grep -rqE 'push.*--mirror' . --include='*.yml' --include='*.sh' 2>/dev/null || true"
+    pattern: "! grep -rqE 'push.*--mirror' . --include='*.yml' --include='*.sh' 2>/dev/null"
     severity: warning
     desc: >-
       Jobs using `git push --mirror` must ensure the target repo's default
