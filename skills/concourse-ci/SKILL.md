@@ -51,6 +51,7 @@ See `references/core-concepts.md` for step types table, lifecycle hooks, and fly
 1. **Git tag detection after force-push** -- Escape regex dots, enable `clean_tags: true`, separate read/write resources, force recheck with `fly -t T check-resource -r pipeline/resource`. See `references/resources-guide.md`.
 2. **registry_mirror format mismatch** -- `registry-image` expects an object (`host: mirror`), `docker-image` expects a URL string. Provide separate formats in `CONCOURSE_BASE_RESOURCE_TYPE_DEFAULTS`. See `references/resources-guide.md`.
 3. **GitLab Container Registry JWT auth** -- The JWT endpoint lives on the GitLab host, not the registry host. Discover via `Www-Authenticate` header. See `references/resources-guide.md`.
+4. **git push --mirror and default branch** -- Target repo's default branch must exist upstream. If absent, the pre-receive hook rejects the push with "pre-receive hook declined". Set it before the first mirror push.
 
 ## References
 
