@@ -4,56 +4,6 @@ Optimization patterns, common pitfalls, and debugging strategies.
 
 ## Pipeline Organization
 
-### Use YAML Anchors for DRY Configuration
-
-```yaml
-# Top of pipeline: define reusable snippets
-git-source: &git-source
-  username: ((gitlab.USER))
-  password: ((gitlab.ACCESS_TOKEN))
-
-registry-source: &registry-source
-  username: ((registry.USER))
-  password: ((registry.PASSWORD))
-
-notify-failure: &notify-failure
-  put: slack
-  params:
-    text: '((SLACK_ICON_FAILURE)) $BUILD_PIPELINE_NAME/$BUILD_JOB_NAME failed'
-
-notify-success: &notify-success
-  put: slack
-  params:
-    text: '((SLACK_ICON_SUCCESS)) $BUILD_PIPELINE_NAME/$BUILD_JOB_NAME succeeded'
-
-# Use anchors in resources
-resources:
-- name: repo-main
-  type: git
-  source:
-    <<: *git-source
-    uri: https://git.example.com/org/repo.git
-    branch: main
-
-- name: repo-staging
-  type: git
-  source:
-    <<: *git-source
-    uri: https://git.example.com/org/repo.git
-    branch: staging
-
-# Use anchors in jobs
-jobs:
-- name: build
-  plan:
-  - get: repo-main
-    trigger: true
-  - task: build
-    file: repo-main/ci/tasks/build.yml
-  on_failure:
-    <<: *notify-failure
-```
-
 ### Group Jobs Logically
 
 ```yaml
