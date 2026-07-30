@@ -350,6 +350,40 @@ resources:
 
 ## Debugging Strategies
 
+### "version is missing from previous step" on a put
+
+Symptom: a `put` step logs `initializing check: <resource-type>` followed by
+`version is missing from previous step`, the step's script never runs (no
+`out` output at all), and the build ends **errored** — not failed.
+
+Cause: the resource **or its custom resource type** pins a container image tag
+that does not exist. The registry-image check for the nonexistent tag returns
+an empty version list, so the internal get of the type image has no version to
+fetch. The name in `initializing check:` is the *resource-type* name when the
+type image itself is the problem.
+
+Verify — ask the registry, don't trust the pipeline YAML:
+
+```bash
+# GitLab registry: list actual tags
+glab api "projects/<group>%2F<repo>/registry/repositories" \
+  | jq '.[] | {id, path}'
+glab api "projects/<group>%2F<repo>/registry/repositories/<id>/tags" \
+  | jq -r '.[].name'
+```
+
+Common trap: git tags are `vX.Y.Z`, but images built by the shared
+`ci-components/docker` build component carry **stripped** semver tags
+(`1.2.3`, `1.2`, `1`) — pinning `tag: v1.2.3` fails even though the git tag
+exists. A stale hand-pushed `v`-prefixed image tag can make the prefix look
+right. Prefer the major tag (`tag: "1"`, quoted) so fixes flow in and only a
+breaking major needs a pipeline change.
+
+Because the failing step is usually a notification hook (`on_failure`/
+`on_success`), this bug silently disables failure alerts while flipping every
+build to errored — check how long it has been broken, not just the current
+build.
+
 ### Hijack into Containers
 
 ```bash
