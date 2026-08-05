@@ -36,3 +36,18 @@ fly -t target validate-pipeline -c pipeline.yml
 fly -t target execute -c task.yml -i source=.    # Run task locally
 fly -t target execute --include-ignored -c task.yml -i source=.
 ```
+
+**Scripted/agent usage:** `set-pipeline` prompts `apply configuration? [yN]` and piping
+`echo y |` into it does NOT reliably answer the prompt — the call hangs until killed.
+Always pass `--non-interactive` in automation, and run `validate-pipeline` first:
+
+```bash
+fly -t target validate-pipeline -c pipeline.yml -l vars.yml
+fly -t target set-pipeline --non-interactive -p pipeline-name -c pipeline.yml -l vars.yml
+```
+
+Verify the applied config afterwards with `fly -t target get-pipeline -p pipeline-name`
+(pipe through `yq` to assert the changed key) — "configuration updated" alone does not
+show what was applied. Token/team note: fly tokens are user-scoped; a logged-in target
+can be cloned to another team by duplicating its `~/.flyrc` entry with a different
+`team:` value — no second OAuth login needed.
