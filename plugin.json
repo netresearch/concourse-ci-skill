@@ -1,0 +1,12 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "concourse-ci",
+  "version": "1.9.3",
+  "description": "Expert guidance for Concourse CI pipeline development, optimization, and troubleshooting",
+  "author": {
+    "name": "Netresearch DTT GmbH",
+    "url": "https://www.netresearch.de"
+  },
+  "repository": "https://github.com/netresearch/concourse-ci-skill",
+  "license": "(MIT AND CC-BY-SA-4.0)"
+}
