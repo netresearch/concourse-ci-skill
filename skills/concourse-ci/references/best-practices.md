@@ -384,6 +384,76 @@ Because the failing step is usually a notification hook (`on_failure`/
 build to errored — check how long it has been broken, not just the current
 build.
 
+A **cached resource-type image hides the bug for a while**, which makes the
+onset look unrelated to any change: the pipeline keeps running green until the
+worker's cached version for that type expires, then errors without anything in
+the pipeline having been touched. It also breaks asymmetrically. In one case
+the `on_success` hook errored on the check while the `on_error` hook that fired
+afterwards still fetched the image by digest from cache and delivered its
+message — so alerts *were* arriving and looked like proof the pin was fine.
+Do not read a delivered notification as evidence that the tag resolves; ask the
+registry.
+
+Note also that a green build does not exercise an `on_failure`-only hook, so a
+successful run after the fix proves nothing about that pipeline's notification
+path.
+
+### Reading build logs over the API
+
+`fly watch` needs a target for the build's own team. Over the API the endpoint
+is `/api/v1/builds/<id>/events`, and it is a **Server-Sent Events stream that
+does not close when the build is finished** — a plain `curl` hangs until the
+caller's timeout. Always bound it:
+
+```bash
+curl -sS --max-time 45 -H "Authorization: Bearer $TOKEN" \
+  "$ATC/api/v1/builds/<id>/events" -o events.raw
+
+# errors, status transitions and real log lines, minus the git progress noise
+grep '^data: ' events.raw | sed 's/^data: //' | jq -r '
+  if   .event=="error"  then "[ERROR] \(.data.message)"
+  elif .event=="status" then "[STATUS] \(.data.status)"
+  elif .event=="log"    then "[log] \(.data.payload)"
+  else empty end'
+```
+
+Build ids come from `/api/v1/teams/<team>/pipelines/<p>/jobs/<j>/builds?limit=5`.
+Distinguish `errored` from `failed` in that listing: `failed` is the job's own
+non-zero exit, `errored` is Concourse failing to run a step at all — a dead
+resource-type tag lands in the second bucket while the job's real work may have
+succeeded.
+
+### Reaching another team without a second interactive login
+
+`fly login` is browser-interactive, which is awkward for an agent and worse when
+several teams are involved. A token for a **main-team** account authorizes the
+other teams' API paths too, so an existing target is usually enough. Point `fly`
+at a throwaway config instead of editing the user's `~/.flyrc`:
+
+```bash
+TOKEN=$(awk -v t="  <existing-target>:" '$0==t{i=1;next} i&&/^  [a-z]/{i=0}
+        i&&/value:/{sub(/^[[:space:]]*value:[[:space:]]*/,"");print;exit}' ~/.flyrc)
+FLYHOME=$(mktemp -d)                     # never a fixed /tmp path: the file holds a token
+trap 'rm -rf "$FLYHOME"' EXIT
+( umask 077                              # created private, not chmod-ed private afterwards
+  printf 'targets:\n  %s:\n    api: %s\n    team: %s\n    token:\n      type: bearer\n      value: %s\n' \
+    "$TEAM" "$ATC" "$TEAM" "$TOKEN" > "$FLYHOME/.flyrc" )
+
+HOME="$FLYHOME" fly -t "$TEAM" pipelines   # read-only probe first
+HOME="$FLYHOME" fly -t "$TEAM" set-pipeline -p "$P" -c ci/p.yml -l ci/vars.yml -n
+```
+
+Two details in that snippet are the point of it, not decoration. `mktemp -d`
+rather than a predictable `/tmp/flyhome`, because a fixed path in a shared
+directory can be pre-created or symlinked by another user; and `umask 077`
+around the write rather than a `chmod` after it, because `chmod` leaves a window
+in which the bearer token sits in a world-readable file. The `trap` removes it
+on exit.
+
+Run the read-only probe before relying on the target: a non-main token is simply
+refused, and finding that out from `pipelines` is cheaper than from a
+half-applied `set-pipeline`.
+
 ### Hijack into Containers
 
 ```bash
