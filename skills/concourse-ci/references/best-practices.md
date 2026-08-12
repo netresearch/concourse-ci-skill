@@ -433,16 +433,26 @@ at a throwaway config instead of editing the user's `~/.flyrc`:
 ```bash
 TOKEN=$(awk -v t="  <existing-target>:" '$0==t{i=1;next} i&&/^  [a-z]/{i=0}
         i&&/value:/{sub(/^[[:space:]]*value:[[:space:]]*/,"");print;exit}' ~/.flyrc)
-mkdir -p /tmp/flyhome
-printf 'targets:\n  %s:\n    api: %s\n    team: %s\n    token:\n      type: bearer\n      value: %s\n' \
-  "$TEAM" "$ATC" "$TEAM" "$TOKEN" > /tmp/flyhome/.flyrc
-chmod 600 /tmp/flyhome/.flyrc
-HOME=/tmp/flyhome fly -t "$TEAM" set-pipeline -p "$P" -c ci/p.yml -l ci/vars.yml -n
+FLYHOME=$(mktemp -d)                     # never a fixed /tmp path: the file holds a token
+trap 'rm -rf "$FLYHOME"' EXIT
+( umask 077                              # created private, not chmod-ed private afterwards
+  printf 'targets:\n  %s:\n    api: %s\n    team: %s\n    token:\n      type: bearer\n      value: %s\n' \
+    "$TEAM" "$ATC" "$TEAM" "$TOKEN" > "$FLYHOME/.flyrc" )
+
+HOME="$FLYHOME" fly -t "$TEAM" pipelines   # read-only probe first
+HOME="$FLYHOME" fly -t "$TEAM" set-pipeline -p "$P" -c ci/p.yml -l ci/vars.yml -n
 ```
 
-Delete the file when done — it holds a bearer token. Verify the authorization
-with a read-only call (`fly -t "$TEAM" pipelines`) before relying on it; a
-non-main token will simply be refused.
+Two details in that snippet are the point of it, not decoration. `mktemp -d`
+rather than a predictable `/tmp/flyhome`, because a fixed path in a shared
+directory can be pre-created or symlinked by another user; and `umask 077`
+around the write rather than a `chmod` after it, because `chmod` leaves a window
+in which the bearer token sits in a world-readable file. The `trap` removes it
+on exit.
+
+Run the read-only probe before relying on the target: a non-main token is simply
+refused, and finding that out from `pipelines` is cheaper than from a
+half-applied `set-pipeline`.
 
 ### Hijack into Containers
 
