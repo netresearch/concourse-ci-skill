@@ -51,3 +51,21 @@ Verify the applied config afterwards with `fly -t target get-pipeline -p pipelin
 show what was applied. Token/team note: fly tokens are user-scoped; a logged-in target
 can be cloned to another team by duplicating its `~/.flyrc` entry with a different
 `team:` value — no second OAuth login needed.
+
+**Admin (main-team) shortcut:** when the logged-in target belongs to the Concourse
+admin team, most commands accept `--team <other-team>` directly — e.g.
+`fly -t admin-target set-pipeline --team customer-team -p pipeline …`, same for
+`builds`, `trigger-job`, `watch`, `check-resource`. One fresh admin login then covers
+every team without cloning `~/.flyrc` entries or chasing per-team OAuth logins.
+
+**Target name ≠ team name:** `-t` names a local `~/.flyrc` entry, not the team.
+Makefiles routinely hardcode `fly -t <team>` while the machine's targets are named
+differently (`ci-<team>`, an alias, …) — the resulting `error: unknown target` looks
+like a login problem but is a naming mismatch. `fly targets` lists what actually
+exists, with each entry's team in the third column.
+
+**Verifying builds without CI access:** when no usable fly login exists, the
+pipeline's outputs answer most questions. A `put` to a `registry-image` resource
+updates the tag's `created_at`/digest (GitLab: `projects/:id/registry/repositories/:rid/tags/<tag>`),
+and deploy jobs that push a git tag leave it in `ls-remote --tags`. A stale
+`created_at` also dates the last successful build precisely.
