@@ -278,6 +278,30 @@ jobs:
   - task: deploy
 ```
 
+**Why this matters beyond Concourse's own workers:** if `deploy-staging` and
+`deploy-prod` deploy to the same host under the same deploy user, they share
+external state Concourse doesn't know about — most commonly a single Docker
+`login`/`logout` session on that host. Without `serial_groups`, two such jobs
+running at once can race: one job's `docker logout` fires while the other's
+`docker compose pull` is still mid-flight, failing that pull right after its
+own `docker compose down` already tore the environment down — with no
+automatic rollback. Treat "do these jobs touch the same host, credential
+session, or database?" as a design question for every `deploy-*` job pair,
+not just a performance knob.
+
+**Operating an existing pipeline by hand:** prefer the blocking trigger form
+over trigger-then-watch when firing related jobs yourself:
+
+```bash
+fly -t target trigger-job -j pipeline/deploy-staging -w
+fly -t target trigger-job -j pipeline/deploy-production -w
+```
+
+`-w` blocks until the job finishes, so a second `trigger-job` (in a script, or
+an agent's next tool call) cannot fire while the first is still running — a
+useful safety net even when the pipeline already has `serial_groups` set, and
+the only one available if it doesn't.
+
 ---
 
 ## Security Best Practices
