@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "concourse-ci",
-  "version": "1.10.2",
+  "version": "1.11.0",
   "description": "Expert guidance for Concourse CI pipeline development, optimization, and troubleshooting",
   "author": {
     "name": "Netresearch DTT GmbH",
