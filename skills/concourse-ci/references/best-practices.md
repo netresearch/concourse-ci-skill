@@ -422,6 +422,36 @@ Note also that a green build does not exercise an `on_failure`-only hook, so a
 successful run after the fix proves nothing about that pipeline's notification
 path.
 
+### Reading a finished build from the CLI first
+
+With a target for the build's own team, two `fly` commands answer the whole
+forensic question, and neither needs SSE handling:
+
+```bash
+fly -t <target> builds -j <pipeline>/<job> -c 20   # history: status, dates, who triggered
+fly -t <target> watch  -j <pipeline>/<job> -b <n>  # replay a FINISHED build's full log
+```
+
+`fly watch` is not restricted to a running build: it re-streams the stored log of
+a completed one and exits with a code derived from that build's status, so a loop
+over the last few builds prints each tail without an API call. The listing dates
+the regression — on a nightly deploy job the last green build and the first red
+one bracketed the onset to a single night, and the error text changed one day
+after that (`curl: (7) Failed to connect` → `404`), which placed a second change
+on the target host.
+
+A 401 from `fly` or the API is not a dead end. Targets are per team and
+`fly targets` prints team and expiry for each, so a token for a different team
+answers nothing here — ask the human for
+`fly -t <name> login -n <team> -c <url>` instead of building a substitute
+measurement around the missing access.
+
+**Do not re-run a job to test a hypothesis about one of its late steps.** In a
+deploy job the deploy runs first, so a re-run redeploys the environment just to
+reach the failing line. The task's params come from the credential manager:
+read the same secret and issue the failing request by hand from a workstation,
+and re-run only once that succeeds.
+
 ### Reading build logs over the API
 
 `fly watch` needs a target for the build's own team. Over the API the endpoint
