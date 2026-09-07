@@ -422,6 +422,42 @@ Note also that a green build does not exercise an `on_failure`-only hook, so a
 successful run after the fix proves nothing about that pipeline's notification
 path.
 
+### Reading a finished build from the CLI first
+
+With a target for the build's own team, two `fly` commands answer the whole
+forensic question, and neither needs SSE handling:
+
+```bash
+fly -t <target> builds -j <pipeline>/<job> -c 20   # history: status, dates, who triggered
+fly -t <target> watch  -j <pipeline>/<job> -b <n>  # replay a finished build's retained log
+```
+
+`fly watch` is not restricted to a running build: it re-streams the retained log
+of a completed one and exits with a code derived from that build's status, so a
+loop over the last few builds prints each tail. It reads the same events endpoint
+as the recipe below — the gain is that you neither assemble the request nor
+handle the SSE stream yourself. What it can print is bounded by the job's
+`build_log_retention`: once the ATC has reaped a build's logs there is nothing
+left to replay, while the build itself still lists in `fly builds`.
+The listing dates a regression — on a nightly deploy job the last green build and
+the first red one bracketed the onset to a single night, and the error text
+changed one day after that (`curl: (7) Failed to connect` → `404`), which placed
+a second change on the target host.
+
+A 401 from `fly` or the API is not a dead end, and it is not automatically a
+missing login either. Targets are per team and `fly targets` prints team and
+expiry for each, so first check whether an existing target already carries the
+authorization — a main-team token answers other teams' API paths, which is what
+*Reaching another team without a second interactive login* below exploits. Only
+when no target has it, ask the human for `fly -t <name> login -n <team> -c <url>`
+rather than building a substitute measurement around the missing access.
+
+**Do not re-run a job to test a hypothesis about one of its late steps.** Read
+the job plan first: where a deploy, a migration or a publish precedes the failing
+step, a re-run performs it again just to reach the failing line. The task's
+params come from the credential manager, so read the same secret and issue the
+failing request by hand from a workstation, and re-run only once that succeeds.
+
 ### Reading build logs over the API
 
 `fly watch` needs a target for the build's own team. Over the API the endpoint
