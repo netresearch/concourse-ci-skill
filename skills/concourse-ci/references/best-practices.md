@@ -400,6 +400,10 @@ resources:
 
 ## Debugging Strategies
 
+`-j`/`--job` everywhere below takes `pipeline/job` — not `team/pipeline/job`.
+The team is already given via `-t target`; passing it again in `-j` fails
+with `instance vars should be formatted as <key1:value1>(,<key2:value2>)`.
+
 ### Hijack into Containers
 
 ```bash
