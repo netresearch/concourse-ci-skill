@@ -444,6 +444,16 @@ the first red one bracketed the onset to a single night, and the error text
 changed one day after that (`curl: (7) Failed to connect` → `404`), which placed
 a second change on the target host.
 
+**A still-running build is a different case from a finished one.** The two
+commands above assume the build is over. On a live build that has been running
+for several minutes, a short bounded `curl` against the events endpoint (or an
+agent's own tool-call timeout on `fly watch`) only returns the *oldest* portion
+of a growing stream, not the current tail — the SSE replay is roughly paced to
+the original timing, so catching up to "now" on a 10-minute build costs close
+to 10 minutes of streaming. Prefer polling `fly builds -j pipeline/job -c 2`
+repeatedly (cheap, returns immediately) over `fly watch`/the events endpoint
+for live status; reserve `fly watch`/SSE for a build that has already finished.
+
 A 401 from `fly` or the API is not a dead end, and it is not automatically a
 missing login either. Targets are per team and `fly targets` prints team and
 expiry for each, so first check whether an existing target already carries the
@@ -526,6 +536,20 @@ fly -t target hijack -j pipeline/job -s task-name
 # List hijack targets
 fly -t target hijack -j pipeline/job --list
 ```
+
+**Diagnosing a process inside the container can leak secrets.** A task that
+passes a credential as `--build-arg`/an env var (e.g. `docker build --build-arg
+COMPOSER_AUTH=...`, common with `oci-build-task`/buildctl) puts it in that
+process's full command line. `ps aux`/`ps -ef` after a hijack then prints it in
+plain text — into whatever log or transcript captures the hijack session. Check
+process state without the argument vector:
+
+```bash
+fly -t target hijack -j pipeline/job -b 123 -- ps -o pid,etime,comm
+```
+
+`ps -o pid,etime,comm` (no `args`/`cmd` column) still shows what is running and
+for how long — enough to tell "hung" from "still working" — without the risk.
 
 ### Check Resource Versions
 
