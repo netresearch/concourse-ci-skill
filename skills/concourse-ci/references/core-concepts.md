@@ -25,6 +25,17 @@
 
 **Important**: `on_failure` (exit code 1) is different from `on_error` (container crash). Handle both.
 
+## Multiple Triggers on One Job
+
+A job with several `get` steps marked `trigger: true` runs when **any one** of
+them sees a new version — not only when all of them are simultaneously new.
+`deploy-staging` with both `get: app-image-staging, passed: [build-image],
+trigger: true` and `get: timer-daily, trigger: true` fires as soon as a build
+that satisfies `passed` lands, without waiting for the timer. Do not assume a
+manual `trigger-job` or a wait for the slower trigger (a weekly/daily timer) is
+needed — check `fly builds -j pipeline/job -c 2` first; the deploy may already
+be running.
+
 ## fly CLI Essentials
 
 ```bash
