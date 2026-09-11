@@ -1,6 +1,6 @@
 {
   "name": "concourse-ci",
-  "version": "1.11.0",
+  "version": "1.11.1",
   "description": "Expert guidance for Concourse CI pipeline development, optimization, and troubleshooting",
   "author": {
     "name": "Netresearch DTT GmbH",
