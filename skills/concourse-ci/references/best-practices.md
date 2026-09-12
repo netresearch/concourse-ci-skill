@@ -560,6 +560,29 @@ fly -t target validate-pipeline -c pipeline.yml
 fly -t target validate-pipeline -c pipeline.yml -l vars.yml
 ```
 
+**It checks the schema, not what a resource does with it.** `validate-pipeline`
+knows Concourse's own structure — job, plan, `get`/`put`, the shape of a
+`resource_type`. It does not know a resource's `source:` and `params:` keys,
+because those are the resource's private contract. So a misspelled or invented
+param passes, and so does a credential path that resolves to nothing: both are
+just strings to the validator. Two shapes that validate green and are wrong:
+
+```yaml
+- put: notify
+  params:
+    status: success
+    projekt: chemnitz        # typo — silently ignored at runtime
+- get: image
+  source:
+    username: ((gitlab.USER))   # wrong credential name — empty at runtime
+```
+
+Prove a param the only way that holds: read what the run produced (the event,
+the message, the artefact the resource wrote), or diff the live config with
+`fly get-pipeline -p <name>` after `set-pipeline` and check the key is where you
+put it. A green validation plus a green build still says nothing — a `put` whose
+param was dropped usually succeeds.
+
 ### Debug Task Locally
 
 ```bash
