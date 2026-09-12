@@ -564,9 +564,10 @@ fly -t target validate-pipeline -c pipeline.yml -l vars.yml
 Unknown fields in a step or a job are caught — `source:` on a `get:` step fails
 with `jobs.j.plan.do[0]: unknown fields ["source"]`. What a resource makes of
 its `source:` and `params:` is that resource's private contract, and the
-validator does not know it: an invented param and a credential name that
-resolves to nothing are both just strings to it. Measured on `fly 8.3.0` with
-this file, which validates as `looks good`:
+validator does not know it: an invented param and a credential reference are
+both just strings to it — it neither asks the resource which keys it takes nor
+resolves a credential. Measured on `fly 8.3.0` with this file, which validates
+as `looks good`:
 
 ```yaml
 resources:
@@ -574,7 +575,12 @@ resources:
   type: registry-image
   source:
     repository: alpine
-    username: ((gitlab.USER))     # wrong credential name — empty at runtime
+    username: ((gitlab.USER))     # never resolved here; the credential manager
+                                  # answers at runtime, or the step fails there
+- name: notify
+  type: webhook-notify
+  source:
+    webhook_url: ((notify.WEBHOOK_URL))
 jobs:
 - name: j
   plan:
@@ -582,7 +588,9 @@ jobs:
   - put: notify
     params:
       status: success
-      projekt: chemnitz           # typo for `project` — ignored at runtime
+      projekt: my-app             # typo for `project`; validation does not check
+                                  # it — what the resource does with an unknown key
+                                  # is that resource's business
 ```
 
 Prove a param the way that holds: read what the run produced (the event, the
