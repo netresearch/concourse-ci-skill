@@ -560,25 +560,33 @@ fly -t target validate-pipeline -c pipeline.yml
 fly -t target validate-pipeline -c pipeline.yml -l vars.yml
 ```
 
-**It checks the schema, not what a resource does with it.** `validate-pipeline`
-knows Concourse's own structure — job, plan, `get`/`put`, the shape of a
-`resource_type`. It does not know a resource's `source:` and `params:` keys,
-because those are the resource's private contract. So a misspelled or invented
-param passes, and so does a credential path that resolves to nothing: both are
-just strings to the validator. Two shapes that validate green and are wrong:
+**It checks Concourse's own structure, and stops at the resource's door.**
+Unknown fields in a step or a job are caught — `source:` on a `get:` step fails
+with `jobs.j.plan.do[0]: unknown fields ["source"]`. What a resource makes of
+its `source:` and `params:` is that resource's private contract, and the
+validator does not know it: an invented param and a credential name that
+resolves to nothing are both just strings to it. Measured on `fly 8.3.0` with
+this file, which validates as `looks good`:
 
 ```yaml
-- put: notify
-  params:
-    status: success
-    projekt: chemnitz        # typo — silently ignored at runtime
-- get: image
+resources:
+- name: image
+  type: registry-image
   source:
-    username: ((gitlab.USER))   # wrong credential name — empty at runtime
+    repository: alpine
+    username: ((gitlab.USER))     # wrong credential name — empty at runtime
+jobs:
+- name: j
+  plan:
+  - get: image
+  - put: notify
+    params:
+      status: success
+      projekt: chemnitz           # typo for `project` — ignored at runtime
 ```
 
-Prove a param the only way that holds: read what the run produced (the event,
-the message, the artefact the resource wrote), or diff the live config with
+Prove a param the way that holds: read what the run produced (the event, the
+message, the artefact the resource wrote), or diff the live config with
 `fly get-pipeline -p <name>` after `set-pipeline` and check the key is where you
 put it. A green validation plus a green build still says nothing — a `put` whose
 param was dropped usually succeeds.
