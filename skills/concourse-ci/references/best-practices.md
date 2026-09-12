@@ -560,6 +560,45 @@ fly -t target validate-pipeline -c pipeline.yml
 fly -t target validate-pipeline -c pipeline.yml -l vars.yml
 ```
 
+**It checks Concourse's own structure, and stops at the resource's door.**
+Unknown fields in a step or a job are caught — `source:` on a `get:` step fails
+with `jobs.j.plan.do[0]: unknown fields ["source"]`. What a resource makes of
+its `source:` and `params:` is that resource's private contract, and the
+validator does not know it: an invented param and a credential reference are
+both just strings to it — it neither asks the resource which keys it takes nor
+resolves a credential. Measured on `fly 8.3.0` with this file, which validates
+as `looks good`:
+
+```yaml
+resources:
+- name: image
+  type: registry-image
+  source:
+    repository: alpine
+    username: ((gitlab.USER))     # never resolved here; the credential manager
+                                  # answers at runtime, or the step fails there
+- name: notify
+  type: webhook-notify
+  source:
+    webhook_url: ((notify.WEBHOOK_URL))
+jobs:
+- name: j
+  plan:
+  - get: image
+  - put: notify
+    params:
+      status: success
+      projekt: my-app             # typo for `project`; validation does not check
+                                  # it — what the resource does with an unknown key
+                                  # is that resource's business
+```
+
+Prove a param the way that holds: read what the run produced (the event, the
+message, the artefact the resource wrote), or diff the live config with
+`fly get-pipeline -p <name>` after `set-pipeline` and check the key is where you
+put it. A green validation plus a green build still says nothing — a `put` whose
+param was dropped usually succeeds.
+
 ### Debug Task Locally
 
 ```bash
