@@ -579,8 +579,8 @@ resources:
   type: registry-image
   source:
     repository: alpine
-    username: ((gitlab.USER))     # never resolved here; the credential manager
-                                  # answers at runtime, or the step fails there
+    username: ((registry.SOME_KEY))  # never resolved here; the credential manager
+                                     # answers at runtime, or the step fails there
 - name: notify
   type: webhook-notify
   source:
@@ -595,6 +595,27 @@ jobs:
       projekt: my-app             # typo for `project`; validation does not check
                                   # it — what the resource does with an unknown key
                                   # is that resource's business
+```
+
+**Key names belong to the secret, not to the ecosystem — read the secret you are
+pointing at.** `((gitlab.USERNAME))` and `((gitlab.USER))` are equally plausible
+and only one of them exists; the credential manager decides that at runtime, in
+a build, long after the set-pipeline that looked fine. The names in any example
+— including the ones above and in a resource's README — are whatever that
+project's Vault holds, so copying a block copies a guess. Reading the secret
+settles it.
+
+The lookup order is the ATC's, not yours: `<prefix>/<team>/<pipeline>/<secret>`
+first, then `<prefix>/<team>/<secret>`, with `<prefix>` defaulting to
+`/concourse`. Ask in that order, or the answer describes a secret the ATC would
+never have reached — a reference that resolves in one pipeline can be missing in
+the next one, and a pre-set check has to try both paths in the same order:
+
+```bash
+# which keys does this secret actually have? values are never needed
+for p in concourse/<team>/<pipeline>/<secret> concourse/<team>/<secret>; do
+  vault kv get -format=json "$p" | jq -r --arg p "$p" '.data.data | keys[] | "\($p): \(.)"'
+done
 ```
 
 Prove a param the way that holds: read what the run produced (the event, the
