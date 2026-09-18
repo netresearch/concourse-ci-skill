@@ -604,15 +604,18 @@ a build, long after the set-pipeline that looked fine. The names in any example
 — including the ones above and in a resource's README — are whatever that
 project's Vault holds, so copying a block copies a guess. One call settles it:
 
-```bash
-# which keys does this secret actually have? values are never needed
-vault kv get -format=json concourse/<team>/<secret> | jq -r '.data.data | keys[]'
-```
-
 The lookup order is the ATC's, not yours: `<prefix>/<team>/<pipeline>/<secret>`
 first, then `<prefix>/<team>/<secret>`, with `<prefix>` defaulting to
-`/concourse`. A reference that resolves in one pipeline can therefore be missing
-in the next one, and a pre-set check has to try both paths in that order.
+`/concourse`. Ask in that order, or the answer describes a secret the ATC would
+never have reached — a reference that resolves in one pipeline can be missing in
+the next one, and a pre-set check has to try both paths in the same order:
+
+```bash
+# which keys does this secret actually have? values are never needed
+for p in concourse/<team>/<pipeline>/<secret> concourse/<team>/<secret>; do
+  vault kv get -format=json "$p" 2>/dev/null | jq -r --arg p "$p" '.data.data | keys[] | "\($p): \(.)"'
+done
+```
 
 Prove a param the way that holds: read what the run produced (the event, the
 message, the artefact the resource wrote), or diff the live config with
