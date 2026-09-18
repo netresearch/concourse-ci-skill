@@ -448,6 +448,22 @@ the first red one bracketed the onset to a single night, and the error text
 changed one day after that (`curl: (7) Failed to connect` → `404`), which placed
 a second change on the target host.
 
+**A still-running build is a different case from a finished one.** The two
+commands above assume the build is over. `/api/v1/builds/<id>/events` starts at
+the build's first event unless the request carries a `Last-Event-ID` header, and
+there is no tail mode: reaching "now" means transferring every event before it.
+What terminates the stream is an `event: end` frame — `fly` maps it to `io.EOF`
+and exits — and the handler writes it only once the build is complete. Before
+that it drains the stored events as fast as the client reads them, then blocks
+waiting for the next one (`atc/api/buildserver/eventhandler.go`,
+`atc/db/build_event_source.go`, `go-concourse/concourse/eventstream/stream.go`).
+So nothing short of the build finishing ends a live `fly watch`, and a bounded
+read (`curl --max-time`, an agent's own tool-call timeout) ends on its own
+timeout instead, keeping the *oldest* portion of the output rather than the
+current tail. For live status poll
+`fly builds -j <pipeline>/<job> -c 2` instead (cheap, returns immediately);
+reserve `fly watch`/SSE for a build that has already finished.
+
 A 401 from `fly` or the API is not a dead end, and it is not automatically a
 missing login either. Targets are per team and `fly targets` prints team and
 expiry for each, so first check whether an existing target already carries the
@@ -530,6 +546,30 @@ fly -t target hijack -j pipeline/job -s task-name
 # List hijack targets
 fly -t target hijack -j pipeline/job --list
 ```
+
+**Diagnosing a process inside the container can leak secrets.** A credential
+passed as a build arg ends up in a process's full command line: `oci-build-task`
+turns every `BUILD_ARG_<name>` param into a `--opt build-arg:<name>=<value>`
+argument on the `buildctl` it runs, so `BUILD_ARG_COMPOSER_AUTH` is readable in
+that container's process table. `ps aux`/`ps -ef` after a hijack then prints it
+in plain text — into whatever log or transcript captures the hijack session.
+Check process state without the argument vector:
+
+```bash
+fly -t target hijack -j pipeline/job -b 123 -- ps -o pid,etime,comm
+```
+
+`ps -o pid,etime,comm` (no `args`/`cmd` column) still shows what is running and
+for how long — enough to tell "hung" from "still working". On a busybox `ps`
+(Alpine task images) `etime` is a compile-time option, so fall back to
+`-o pid,comm` if the column is rejected.
+
+This narrows one surface, not all of them: the param is also in the task
+container's environment, so `env` and `/proc/<pid>/environ` still expose it.
+For a credential the Dockerfile needs, `BUILDKIT_SECRETTEXT_<id>` /
+`BUILDKIT_SECRET_<id>` (mounted at `/run/secrets/<id>` via
+`RUN --mount=type=secret,id=<id>`) keeps the value off both the command line
+and the image layers; a build arg belongs to non-secret input only.
 
 ### Check Resource Versions
 
