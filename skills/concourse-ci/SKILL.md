@@ -33,7 +33,7 @@ Expert guidance for writing, refactoring, and optimizing Concourse CI pipelines 
 | Task | Modern (Recommended) | Legacy (Avoid) |
 |------|---------------------|----------------|
 | Building images | `oci-build-task` + `registry-image` | `docker-image` resource |
-| Multi-env deploys | `across` step modifier | Duplicate jobs per env |
+| Multi-env deploys | `across` step modifier | Duplicate jobs per environment |
 | Dynamic pipelines | `set_pipeline` + instanced pipelines | Manual pipeline duplication |
 | Notification symbols | UTF-8 characters (e.g. `\u2714` for checkmark, `\u274c` for X) | HTML entities (e.g. `&check;`, `&cross;`) |
 | Resource styling | Always use `icon:` property | No icon |

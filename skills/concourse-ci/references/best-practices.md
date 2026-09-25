@@ -486,7 +486,7 @@ does not close when the build is finished** — a plain `curl` hangs until the
 caller's timeout. Always bound it:
 
 ```bash
-curl -sS --max-time 45 -H "Authorization: Bearer $TOKEN" \
+curl -sS --max-time 45 -H "Authorization: Bearer <token>" \
   "$ATC/api/v1/builds/<id>/events" -o events.raw
 
 # errors, status transitions and real log lines, minus the git progress noise
@@ -1037,11 +1037,10 @@ For simpler setups without the resource type:
       args:
       - -c
       - |
-        mkdir -p ~/.ssh
-        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
+        echo "$SSH_PRIVATE_KEY" > deploy_key
+        chmod 600 deploy_key
         cd source/ansible
-        ansible-playbook -i inventory/hosts playbook.yml
+        ansible-playbook --private-key=../deploy_key -i inventory/hosts playbook.yml
 ```
 
 ### Cross-Repository Pipeline Triggers
