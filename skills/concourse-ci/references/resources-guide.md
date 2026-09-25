@@ -485,7 +485,7 @@ REALM=$(echo "${AUTH_HEADER}" | sed -n 's/.*realm="\([^"]*\)".*/\1/p')
 SERVICE=$(echo "${AUTH_HEADER}" | sed -n 's/.*service="\([^"]*\)".*/\1/p')
 
 # Request token
-TOKEN=$(curl -sf -u "${USER}:${PASSWORD}" \
+TOKEN=$(curl -sf -u "<username>:<password>" \
   "${REALM}?service=${SERVICE}&scope=repository:${REPO}:pull" \
   | jq -r '.token')
 ```
