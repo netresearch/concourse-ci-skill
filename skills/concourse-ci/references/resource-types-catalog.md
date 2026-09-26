@@ -158,7 +158,7 @@ jobs:
       extra_vars:
         app_version: "1.2.3"
       setup_commands:          # Run before playbook
-      - "pip install boto3"
+      - "pip install boto3==1.34.0"
 ```
 
 ### Example: Terraform Resource
