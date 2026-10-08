@@ -161,7 +161,7 @@ jobs:
       vars:
         app_version: "1.2.3"
       setup_commands:          # Run before playbook
-      - "pip install --break-system-packages boto3"
+      - "pip install --break-system-packages 'boto3>=1.34'"
 ```
 
 ### Example: Terraform Resource
