@@ -52,7 +52,7 @@ This document states what users of the Concourse CI skill can and cannot expect 
 
 ## Checks on every pull request to `main`
 
-`security.yml` (Betterleaks, zizmor, dependency review, Composer Audit, Opengrep), `lint.yml` (skill validation including ShellCheck, markdownlint, yamllint, actionlint), `tests.yml` (behaviour tests), `eval-validate.yml`, `harness-verify.yml`, `check-template-drift.yml`, and CodeQL for GitHub Actions through the repository's default setup.
+`security.yml` (Betterleaks, zizmor, dependency review, Composer Audit, Opengrep, CodeQL for GitHub Actions), `lint.yml` (skill validation including ShellCheck, markdownlint, yamllint, actionlint), `tests.yml` (behaviour tests), `eval-validate.yml`, `harness-verify.yml` and `check-template-drift.yml`.
 
 ## What users cannot expect
 
