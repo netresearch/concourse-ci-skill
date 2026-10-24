@@ -475,6 +475,22 @@ authorization — a main-team token answers other teams' API paths, which is wha
 when no target has it, ask the human for `fly -t <name> login -n <team> -c <url>`
 rather than building a substitute measurement around the missing access.
 
+A stored username and password do not replace that login on every instance.
+`fly login -u <user> -p <password>` uses the web node's password connector:
+`CONCOURSE_PASSWORD_CONNECTOR`, which is `local` by default and can be set to
+`ldap`. When the instance has no connector of that name configured, for example
+an OIDC-only instance still on the `local` default, fly answers:
+
+```text
+error: oauth2: "invalid_request" "Requested connector does not exist."
+```
+
+That message describes the instance's auth setup, not the credential. Another
+password from the secret store gets the same answer, because the connector the
+request names is missing. Ask for the interactive login at the first
+occurrence, and work on whatever does not need the build log while you wait
+(reproducing the failing step locally, for example).
+
 **Do not re-run a job to test a hypothesis about one of its late steps.** Read
 the job plan first: where a deploy, a migration or a publish precedes the failing
 step, a re-run performs it again just to reach the failing line. The task's
