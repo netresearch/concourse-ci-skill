@@ -578,10 +578,11 @@ HOME="$WORK" fly -t "$TEAM" pipelines   # read-only proof
 - **The token belongs to the person whose password it is**, and the builds name that
   person as their trigger. Use an operator's own login with their approval, and a
   team's shared account where one exists for the purpose.
-- With one connector the login redirects straight to its form. With several, the
-  page should list them, and the form-based one is a link away (Dex behaviour, not
-  measured here). An external identity provider has no form on the web node, and
-  this does not apply.
+- With one connector the login redirects straight to its form, and only then does
+  the script work. With several, the page should list them and the form-based one
+  is a link away (Dex behaviour, not measured here); `curl -L` does not follow that
+  link, so the script finds no form. An external identity provider has no form on
+  the web node, and this does not apply.
 - The user's own `~/.flyrc` stays as it was. Remove the throwaway directory when done.
 
 ### Reaching another team without a second interactive login
