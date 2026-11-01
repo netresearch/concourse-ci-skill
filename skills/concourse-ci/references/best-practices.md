@@ -472,8 +472,10 @@ missing login either. Targets are per team and `fly targets` prints team and
 expiry for each, so first check whether an existing target already carries the
 authorization — a main-team token answers other teams' API paths, which is what
 *Reaching another team without a second interactive login* below exploits. Only
-when no target has it, ask the human for `fly -t <name> login -n <team> -c <url>`
-rather than building a substitute measurement around the missing access.
+when no target has it, log in: through the web form where the instance has one
+(*Logging in without a browser* below), otherwise by asking the human for
+`fly -t <name> login -n <team> -c <url>`. Do not build a substitute measurement
+around the missing access.
 
 A stored username and password do not replace that login on every instance.
 `fly login -u <user> -p <password>` uses the web node's password connector:
@@ -487,8 +489,10 @@ error: oauth2: "invalid_request" "Requested connector does not exist."
 
 That message describes the instance's auth setup, not the credential. Another
 password from the secret store gets the same answer, because the connector the
-request names is missing. Ask for the interactive login at the first
-occurrence, and work on whatever does not need the build log while you wait
+request names is missing. Do not retry with other passwords. Where the instance
+logs in through a form (LDAP, local users), that login still works, see below.
+Where it redirects to an external identity provider, ask for the interactive
+login, and work on whatever does not need the build log while you wait
 (reproducing the failing step locally, for example).
 
 **Do not re-run a job to test a hypothesis about one of its late steps.** Read
@@ -522,10 +526,69 @@ non-zero exit, `errored` is Concourse failing to run a step at all — a dead
 resource-type tag lands in the second bucket while the job's real work may have
 succeeded.
 
+### Logging in without a browser
+
+`fly login` prints a URL for a browser, and `fly login -u -p` needs a password
+connector the instance may not have. A browser is still not required when the
+login page is a plain HTML form, as it is with the LDAP connector. The web node
+hands out the same bearer token to any client that submits that form, so a script
+can do what the browser does. Measured against Concourse 8.3.1 with an LDAP
+connector, where `-u -p` answered `Requested connector does not exist`.
+
+1. `GET /sky/login?redirect_uri=/` and follow the redirects with a cookie jar. It
+   ends on the connector's form below `/sky/issuer/auth/<connector>/login`.
+2. Take the form's `action` from the HTML, with `&amp;` decoded. It carries the
+   `state`, so it cannot be hardcoded or reused.
+3. `POST` the fields `login` and `password` to that action, with the same jar.
+4. Read the cookie `skymarshal_auth`. Its value is URL-encoded, may be quoted, and
+   holds `bearer <token>`.
+5. Write the token into a throwaway `.flyrc` and prove it with a call that needs
+   authorization.
+
+```bash
+WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT; umask 077   # jar and .flyrc hold the token
+JAR=$WORK/jar
+curl -sS -L --max-time 20 -c "$JAR" -b "$JAR" -o "$WORK/form.html" "$ATC/sky/login?redirect_uri=/"
+ACTION=$(grep -oE 'action="[^"]+"' "$WORK/form.html" | head -1 | sed -E 's/action="//;s/"$//;s/&amp;/\&/g')
+# the password goes in through a descriptor, never through argv
+curl -sS -L --max-time 25 -c "$JAR" -b "$JAR" -o /dev/null -w '%{http_code}\n' \
+  --data-urlencode "login=$USERNAME" \
+  --data-urlencode "password@"<(printf %s "$PASSWORD") "$ATC$ACTION"
+TOKEN=$(python3 - "$JAR" <<'PY'
+import sys, urllib.parse
+for line in open(sys.argv[1]):
+    p = line.rstrip('\n').split('\t')
+    if len(p) >= 7 and p[5] == 'skymarshal_auth':
+        print(urllib.parse.unquote(p[6]).strip('"').split()[-1])
+        break
+PY
+)
+[ -n "$TOKEN" ] || { echo "no skymarshal_auth cookie: login failed" >&2; exit 1; }
+printf 'targets:\n  %s:\n    api: %s\n    team: %s\n    token:\n      type: bearer\n      value: %s\n' \
+  "$TEAM" "$ATC" "$TEAM" "$TOKEN" > "$WORK/.flyrc"
+HOME="$WORK" fly -t "$TEAM" status      # "logged in successfully"
+HOME="$WORK" fly -t "$TEAM" pipelines   # read-only proof
+```
+
+- **The cookie decides.** A failed login answers 401 and leaves no `skymarshal_auth`
+  in the jar; a good one answers 200 and sets it. A 200 with an empty token is the
+  extraction: the jar holds `skymarshal_auth` and `skymarshal_csrf`, so match that
+  name exactly. A first run that matched names starting with `auth` got nothing and
+  looked like a failed login.
+- **The token belongs to the person whose password it is**, and the builds name that
+  person as their trigger. Use an operator's own login with their approval, and a
+  team's shared account where one exists for the purpose.
+- With one connector the login redirects straight to its form, and only then does
+  the script work. With several, the page should list them and the form-based one
+  is a link away (Dex behaviour, not measured here); `curl -L` does not follow that
+  link, so the script finds no form. An external identity provider has no form on
+  the web node, and this does not apply.
+- The user's own `~/.flyrc` stays as it was. Remove the throwaway directory when done.
+
 ### Reaching another team without a second interactive login
 
-`fly login` is browser-interactive, which is awkward for an agent and worse when
-several teams are involved. A token for a **main-team** account authorizes the
+An interactive login per team is awkward for an agent and worse when several teams
+are involved. A token for a **main-team** account authorizes the
 other teams' API paths too, so an existing target is usually enough. Point `fly`
 at a throwaway config instead of editing the user's `~/.flyrc`:
 
