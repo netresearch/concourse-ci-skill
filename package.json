@@ -1,6 +1,7 @@
 {
   "name": "@netresearch/concourse-ci-skill",
   "version": "0.0.0-source",
+  "private": true,
   "description": "Netresearch AI skill for Concourse CI pipeline development - writing, optimization, debugging.",
   "license": "(MIT AND CC-BY-SA-4.0)",
   "author": "Netresearch DTT GmbH (https://www.netresearch.de/)",
