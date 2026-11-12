@@ -703,7 +703,9 @@ for path in paths:
         ok_branch = "?" if "((" in b else b == branch
         if not (ok_uri and ok_branch):
             return False
-        return "?" if "?" in (ok_uri, ok_branch) else True
+        if "?" in (ok_uri, ok_branch) or {"paths", "ignore_paths"} & s.keys():
+            return "?"  # paths filters: depends on the files the push changes
+        return True
 
     def fires(s):  # with passed:, the version comes only through those jobs
         passed = set(s.get("passed", []))
@@ -723,9 +725,12 @@ for path in paths:
                 print(" ", n, t["task"], t.get("file"), t.get("input_mapping"))
 ```
 
-A `?` (no `branch`, or a `((var))` in `branch`, `uri` or `source`) counts as a
-match here, and the sketch lists those jobs under `uncertain`. Check them
-against the repository's default branch and the vars. Triggers across
+A `?` (no `branch`, a `((var))` in `branch`, `uri` or `source`, or a `paths`
+or `ignore_paths` filter) counts as a match here, and the sketch lists those
+jobs under `uncertain`. Check them against the repository's default branch,
+the vars and the files the push changes. A job that the sketch reaches only
+through `passed:` from an uncertain job is uncertain too, although the sketch
+does not list it. Triggers across
 pipelines (one pipeline's `put` feeding another's `get`) are outside the
 sketch.
 
