@@ -654,9 +654,10 @@ Instanced pipelines share a name; save each instance under its own file name.
 4. **Positive control.** Run the same analysis for a branch known to deploy
    (`staging`, say) and confirm it reports the deploy jobs. Without that, a
    result of "nothing triggered" is unproven.
-5. **After the merge**, read `GET /api/v1/teams/<team>/builds?limit=50`. Include
-   builds in `pending` or `started`: they have no `start_time` yet and are easy
-   to filter out by accident.
+5. **After the merge**, read `GET /api/v1/teams/<team>/builds?limit=50`. Select
+   builds in `pending` or `started` as well as those whose `start_time` is after
+   the merge: a filter on `start_time` alone can drop a build that has not
+   started yet.
 
 ```python
 import json, sys
