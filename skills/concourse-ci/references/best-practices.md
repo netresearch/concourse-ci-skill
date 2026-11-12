@@ -624,21 +624,30 @@ the browserless login above:
 
 ```bash
 curl -sS -H "Authorization: Bearer $TOKEN" "$ATC/api/v1/teams/$TEAM/pipelines" \
-  | jq -r '.[] | select(.archived | not) | .name'
+  | jq -r '.[] | select(.archived | not) | [.name, .paused, (.instance_vars // {} | tojson)] | @tsv'
 curl -sS -H "Authorization: Bearer $TOKEN" \
   "$ATC/api/v1/teams/$TEAM/pipelines/<name>/config" > "<name>.json"   # one per pipeline
 ```
 
-Instanced pipelines share a name; save each instance under its own file name.
+Instanced pipelines share a name. Fetch each instance with its vars as query
+parameters, one `vars.<key>=<JSON value>` per var (URL-encoded, as in the web
+UI's address for that instance), and save each under its own file name.
+
+A paused pipeline, or a paused job (`paused` in
+`GET .../pipelines/<name>/jobs`), does not run now, but it picks up the new
+version when someone unpauses it. Report the pause state next to the job; do
+not drop the job.
 
 1. **Triggered jobs.** A job runs on a push to X when one of its `get` steps has
    `trigger: true` and either the resource is a `git` resource whose
    `source.uri` is the repository and `source.branch` is X, or the step's
-   `passed:` names a job already found. Repeat until nothing changes, since the
-   version flows down `passed:` chains. Walk nested steps too: `in_parallel`,
-   `do`, `try` and the step and job hooks. A git resource without `branch`
-   tracks the default branch; a `((var))` branch is unknown until the vars are
-   read. The `passed:` rule errs toward reporting a job.
+   `passed:` names a job already found. A step with `passed:` gets its version
+   only through the jobs it names, so it counts through them alone, even when
+   its resource is X. Repeat until nothing changes, since the version flows down
+   `passed:` chains. Walk nested steps too: `in_parallel`, `do`, `try` and the
+   step and job hooks. A git resource without `branch` tracks the default
+   branch; a `((var))` in `branch`, in `uri` or as the whole `source` is unknown
+   until the vars are read. The `passed:` rule errs toward reporting a job.
 2. **Tag-filtered resources.** A git resource with `tag_regex` or `tag_filter`
    gets no new version from a branch push, only from a matching tag. Treat it
    separately and find out who or what creates such tags.
@@ -657,7 +666,8 @@ Instanced pipelines share a name; save each instance under its own file name.
 5. **After the merge**, read `GET /api/v1/teams/<team>/builds?limit=50`. Select
    builds in `pending` or `started` as well as those whose `start_time` is after
    the merge: a filter on `start_time` alone can drop a build that has not
-   started yet.
+   started yet. When the oldest of the 50 builds started after the merge, raise
+   `limit` until the list reaches back past the merge time.
 
 ```python
 import json, sys
@@ -678,17 +688,26 @@ for path in paths:
     cfg = json.load(open(path))["config"]
     res = {r["name"]: r for r in cfg.get("resources") or []}
 
-    def x(step):  # True, False, or "?" for a default or templated branch
+    def x(step):  # True, False, or "?" when a default or a ((var)) hides it
         r = res.get(step.get("resource", step["get"]), {})
-        s, uri = r.get("source", {}), r.get("source", {}).get("uri", "")
-        uri = "/" + uri.removesuffix(".git").replace(":", "/")
-        if r.get("type") != "git" or {"tag_regex", "tag_filter"} & s.keys():
+        s = r.get("source", {})
+        if r.get("type") != "git":
             return False
+        if not isinstance(s, dict):  # source: ((var)) as a whole
+            return "?"
+        if {"tag_regex", "tag_filter"} & s.keys():
+            return False
+        uri = "/" + s.get("uri", "").removesuffix(".git").replace(":", "/")
         b = s.get("branch") or "((default))"
-        return uri.endswith("/" + repo) and ("?" if "((" in b else b == branch)
+        ok_uri = "?" if "((" in uri else uri.endswith("/" + repo)
+        ok_branch = "?" if "((" in b else b == branch
+        if not (ok_uri and ok_branch):
+            return False
+        return "?" if "?" in (ok_uri, ok_branch) else True
 
-    def fires(s):  # trigger: true, and the version comes from X or a hit job
-        return s.get("trigger") and (x(s) or hit & set(s.get("passed", [])))
+    def fires(s):  # with passed:, the version comes only through those jobs
+        passed = set(s.get("passed", []))
+        return s.get("trigger") and bool(hit & passed if passed else x(s))
 
     jobs = {j["name"]: list(walk([j])) for j in cfg["jobs"]}  # plan and job hooks
     hit, grew = set(), True
@@ -696,14 +715,17 @@ for path in paths:
         new = {n for n, st in jobs.items() if any(fires(s) for s in st if "get" in s)}
         grew, hit = bool(new - hit), hit | new
     print(path, "triggered:", sorted(hit))
+    unsure = {n for n, st in jobs.items() if any(x(s) == "?" for s in st if "get" in s)}
+    print("  uncertain (? match):", sorted(unsure))
     for n, st in jobs.items():  # item 3: untriggered jobs that get X, inspect by hand
         if n not in hit and any(x(s) for s in st if "get" in s):
             for t in (s for s in st if "task" in s):
                 print(" ", n, t["task"], t.get("file"), t.get("input_mapping"))
 ```
 
-A `?` (no `branch`, or a `((var))` branch) counts as a match here, so check
-those jobs against the repository's default branch and the vars. Triggers across
+A `?` (no `branch`, or a `((var))` in `branch`, `uri` or `source`) counts as a
+match here, and the sketch lists those jobs under `uncertain`. Check them
+against the repository's default branch and the vars. Triggers across
 pipelines (one pipeline's `put` feeding another's `get`) are outside the
 sketch.
 
