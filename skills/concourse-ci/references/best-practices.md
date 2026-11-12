@@ -616,6 +616,96 @@ Run the read-only probe before relying on the target: a non-main token is simply
 refused, and finding that out from `pipelines` is cheaper than from a
 half-applied `set-pipeline`.
 
+### Does a push to branch X trigger a deployment?
+
+Answer it from the pipeline config that is **set**, not from the file in the
+repository: the two drift, and only the set one runs. With a bearer token from
+the browserless login above:
+
+```bash
+curl -sS -H "Authorization: Bearer $TOKEN" "$ATC/api/v1/teams/$TEAM/pipelines" \
+  | jq -r '.[] | select(.archived | not) | .name'
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "$ATC/api/v1/teams/$TEAM/pipelines/<name>/config" > "<name>.json"   # one per pipeline
+```
+
+Instanced pipelines share a name; save each instance under its own file name.
+
+1. **Triggered jobs.** A job runs on a push to X when one of its `get` steps has
+   `trigger: true` and either the resource is a `git` resource whose
+   `source.uri` is the repository and `source.branch` is X, or the step's
+   `passed:` names a job already found. Repeat until nothing changes, since the
+   version flows down `passed:` chains. Walk nested steps too: `in_parallel`,
+   `do`, `try` and the step and job hooks. A git resource without `branch`
+   tracks the default branch; a `((var))` branch is unknown until the vars are
+   read. The `passed:` rule errs toward reporting a job.
+2. **Tag-filtered resources.** A git resource with `tag_regex` or `tag_filter`
+   gets no new version from a branch push, only from a matching tag. Treat it
+   separately and find out who or what creates such tags.
+3. **Untriggered jobs that still use X.** Jobs started by another branch, a
+   timer or by hand may `get` the X resource without `trigger`. Read each task's
+   `file:` and `input_mapping` in those jobs: when a task runs files from the X
+   resource (playbooks, compose files, scripts), a merge into X reaches hosts at
+   that job's next run. A task whose `file:` lives in another repository can
+   still take X as an input by name, so the sketch lists every task of such a
+   job rather than filtering them. Seen in practice: weekly update jobs ran
+   `playbooks/deploy.yml` from `main` with `TAGS=update`, and only the tasks
+   tagged `deploy` copied files, so the answer depended on the playbook's tags.
+4. **Positive control.** Run the same analysis for a branch known to deploy
+   (`staging`, say) and confirm it reports the deploy jobs. Without that, a
+   result of "nothing triggered" is unproven.
+5. **After the merge**, read `GET /api/v1/teams/<team>/builds?limit=50`. Include
+   builds in `pending` or `started`: they have no `start_time` yet and are easy
+   to filter out by accident.
+
+```python
+import json, sys
+
+HOOKS = ("on_success", "on_failure", "on_abort", "on_error", "ensure")
+repo, branch, paths = sys.argv[1], sys.argv[2], sys.argv[3:]  # repo: "org/name"
+
+
+def walk(steps):  # every step, nested ones included
+    for s in steps:
+        yield s
+        sub = s.get("in_parallel") or s.get("do") or s.get("plan") or []
+        yield from walk(sub["steps"] if isinstance(sub, dict) else sub)
+        yield from walk([s[k] for k in ("try", *HOOKS) if k in s])
+
+
+for path in paths:
+    cfg = json.load(open(path))["config"]
+    res = {r["name"]: r for r in cfg.get("resources") or []}
+
+    def x(step):  # True, False, or "?" for a default or templated branch
+        r = res.get(step.get("resource", step["get"]), {})
+        s, uri = r.get("source", {}), r.get("source", {}).get("uri", "")
+        uri = "/" + uri.removesuffix(".git").replace(":", "/")
+        if r.get("type") != "git" or {"tag_regex", "tag_filter"} & s.keys():
+            return False
+        b = s.get("branch") or "((default))"
+        return uri.endswith("/" + repo) and ("?" if "((" in b else b == branch)
+
+    def fires(s):  # trigger: true, and the version comes from X or a hit job
+        return s.get("trigger") and (x(s) or hit & set(s.get("passed", [])))
+
+    jobs = {j["name"]: list(walk([j])) for j in cfg["jobs"]}  # plan and job hooks
+    hit, grew = set(), True
+    while grew:  # fixed point: versions flow down passed: chains
+        new = {n for n, st in jobs.items() if any(fires(s) for s in st if "get" in s)}
+        grew, hit = bool(new - hit), hit | new
+    print(path, "triggered:", sorted(hit))
+    for n, st in jobs.items():  # item 3: untriggered jobs that get X, inspect by hand
+        if n not in hit and any(x(s) for s in st if "get" in s):
+            for t in (s for s in st if "task" in s):
+                print(" ", n, t["task"], t.get("file"), t.get("input_mapping"))
+```
+
+A `?` (no `branch`, or a `((var))` branch) counts as a match here, so check
+those jobs against the repository's default branch and the vars. Triggers across
+pipelines (one pipeline's `put` feeding another's `get`) are outside the
+sketch.
+
 ### Hijack into Containers
 
 ```bash
